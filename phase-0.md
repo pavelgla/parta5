@@ -49,7 +49,7 @@ bw get password "parta5/postgres/local"
 - [x] Шаг 1 — инициализация монорепо
 - [x] Шаг 2 — Next.js 15 + Tailwind в `apps/web`
 - [x] Шаг 3 — Prisma schema и миграция в `packages/db`
-- [ ] Шаг 4 — Row Level Security + Prisma middleware для мульти-тенантности
+- [x] Шаг 4 — Row Level Security + Prisma middleware для мульти-тенантности
 - [ ] Шаг 5 — Auth.js v5 с email/password, страницы `/signup` и `/login`
 - [ ] Шаг 6 — tRPC v11 + базовые роутеры
 - [ ] Шаг 7 — UI редактора курса (`/courses`, `/courses/new`, `/courses/[id]/edit`)
