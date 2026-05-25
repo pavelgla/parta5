@@ -46,7 +46,7 @@ bw get password "parta5/postgres/local"
 
 ## Чек-лист
 
-- [ ] Шаг 1 — инициализация монорепо
+- [x] Шаг 1 — инициализация монорепо
 - [ ] Шаг 2 — Next.js 15 + Tailwind в `apps/web`
 - [ ] Шаг 3 — Prisma schema и миграция в `packages/db`
 - [ ] Шаг 4 — Row Level Security + Prisma middleware для мульти-тенантности
