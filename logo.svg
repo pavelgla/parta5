@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="320" height="100" role="img" aria-label="Парта5">
+  <title>Парта5</title>
+  <text x="20" y="68" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="56" font-weight="500" fill="#1f1f1f">парта</text>
+  <circle cx="240" cy="50" r="34" fill="#2c6ed5"/>
+  <text x="240" y="68" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="44" font-weight="500" fill="#ffffff">5</text>
+</svg>
