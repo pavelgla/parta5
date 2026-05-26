@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { createStorageFromEnv } from '../src/index.js';
-import { S3StorageAdapter } from '../src/s3.js';
+import { createStorageFromEnv } from '../src/index';
+import { S3StorageAdapter } from '../src/s3';
 
 const REQUIRED_VARS = {
   S3_ENDPOINT: 'http://localhost:9000',

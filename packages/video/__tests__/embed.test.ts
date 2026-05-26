@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseEmbedUrl } from '../src/embed/index.js';
+import { parseEmbedUrl } from '../src/embed/index';
 
 describe('parseEmbedUrl', () => {
   describe('YouTube', () => {

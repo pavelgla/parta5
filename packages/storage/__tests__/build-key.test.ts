@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildKey } from '../src/index.js';
+import { buildKey } from '../src/index';
 
 describe('buildKey', () => {
   it('formats key as schools/<schoolId>/<assetType>/<uuid>-<name>', () => {
