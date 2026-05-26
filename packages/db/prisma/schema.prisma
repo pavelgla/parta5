@@ -252,3 +252,19 @@ model VideoAsset {
   @@index([schoolId])
   @@index([status])
 }
+
+model LearningEvent {
+  id         BigInt   @id @default(autoincrement())
+  schoolId   String   @db.Uuid
+  actorId    String   @db.Uuid
+  verb       String
+  objectType String
+  objectId   String   @db.Uuid
+  result     Json?
+  context    Json?
+  timestamp  DateTime @default(now())
+
+  @@index([schoolId, timestamp(sort: Desc)])
+  @@index([actorId, timestamp(sort: Desc)])
+  @@index([objectType, objectId])
+}
