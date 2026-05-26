@@ -44,6 +44,9 @@ importers:
       '@parta5/storage':
         specifier: workspace:*
         version: link:../../packages/storage
+      '@parta5/video':
+        specifier: workspace:*
+        version: link:../../packages/video
       '@tanstack/react-query':
         specifier: ^5.100.14
         version: 5.100.14(react@19.2.6)
@@ -59,6 +62,15 @@ importers:
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
+      bullmq:
+        specifier: ^5.0.0
+        version: 5.77.3
+      hls.js:
+        specifier: ^1.5.0
+        version: 1.6.16
+      ioredis:
+        specifier: ^5.0.0
+        version: 5.10.1
       next:
         specifier: 15.3.2
         version: 15.3.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -2488,6 +2500,9 @@ packages:
 
   help-me@5.0.0:
     resolution: {integrity: sha512-7xgomUX6ADmcYzFik0HzAxh/73YlKR9bmFzf51CZwR+b6YtzU2m0u49hQCqV6SvlqIqsaxovfwdvbnsw3b/zpg==}
+
+  hls.js@1.6.16:
+    resolution: {integrity: sha512-VSIRpLfRwlAAdGL4wiTucx2ScRipo0ed1FBatWkyt832jC4CReKstga6yIhYVwGu9LOBjuX9wzmRMeQdBJtzEA==}
 
   html-url-attributes@3.0.1:
     resolution: {integrity: sha512-ol6UPyBWqsrO6EJySPz2O7ZSr856WDrEzM5zMqp+FJJLGMW35cLYmmZnl0vztAZxRUoNZJFTCohfjuIJ8I4QBQ==}
@@ -6109,6 +6124,8 @@ snapshots:
       '@types/hast': 3.0.4
 
   help-me@5.0.0: {}
+
+  hls.js@1.6.16: {}
 
   html-url-attributes@3.0.1: {}
 
