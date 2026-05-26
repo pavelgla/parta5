@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+env:
+  PNPM_VERSION: '10'
+  NODE_VERSION: '22'
+
+jobs:
+  check:
+    name: Typecheck + Lint + Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: parta5
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: parta5
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://parta5:ci_password@localhost:5432/parta5
+      AUTH_SECRET: ci_secret_not_for_production_use_only
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --network-concurrency 1
+
+      - name: Run Prisma migrations
+        run: pnpm --filter @parta5/db exec prisma migrate deploy
+
+      - name: Typecheck
+        run: pnpm --filter web exec tsc --noEmit
+
+      - name: Build
+        run: pnpm --filter web build
