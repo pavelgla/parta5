@@ -62,7 +62,7 @@
 - [x] Шаг 5 — блочный редактор Notion-style с TipTap и `dnd-kit`
 - [x] Шаг 6 — расширенные метаданные курса: cover, предмет, класс, rich-text описание
 - [x] Шаг 7 — трекинг прогресса на уровне блоков (`BlockView` + IntersectionObserver + HLS.js events)
-- [ ] Шаг 8 — таблица `LearningEvent` (xAPI-like) + API логирования
+- [x] Шаг 8 — таблица `LearningEvent` (xAPI-like) + API логирования
 - [ ] Шаг 9 — publishing flow: DRAFT → PUBLISHED → ARCHIVED + превью + валидация
 - [ ] Шаг 10 — демо-курс + e2e тесты в Playwright + обновление README
 
