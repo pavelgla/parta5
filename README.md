@@ -17,7 +17,58 @@
 
 ## Статус
 
-🔵 **Phase 0 — проектирование.** Бренд, лицензия, стек и архитектура закреплены. MVP в разработке.
+🟢 **Phase 1 — завершён.** Полноценный блочный редактор курсов, self-hosted видео через FFmpeg+HLS, прогресс по блокам, publishing workflow. Phase 2 в разработке: тесты и задания.
+
+## Demo / Быстрый старт
+
+```bash
+git clone https://github.com/your-org/parta5.git
+cd parta5
+cp .env.example .env
+# Отредактируй AUTH_SECRET и S3-credentials в .env
+docker compose up -d
+pnpm install
+pnpm --filter @parta5/db exec prisma migrate deploy
+pnpm --filter @parta5/db exec prisma db seed
+pnpm --filter web dev
+```
+
+Открой http://localhost:3000/login и войди как:
+
+| Роль               | Email                 | Пароль   |
+| ------------------ | --------------------- | -------- |
+| Администратор      | admin@school1.test    | password |
+| Учитель            | teacher@school1.test  | password |
+| Ученик             | student@school1.test  | password |
+| Учитель (RunStart) | teacher@runstart.test | password |
+| Ученик (RunStart)  | student@runstart.test | password |
+
+> **Публикация демо-курса.** Демо-курс «Введение в бег для начинающих» создан в статусе DRAFT (без обложки). Чтобы опубликовать: войди как `teacher@runstart.test` → откройте курс → Settings → загрузи обложку → нажми «Опубликовать».
+
+## Что умеет MVP (Phase 0 + Phase 1)
+
+- **Мульти-тенантность с первого коммита** — каждая запись принадлежит школе; PostgreSQL Row Level Security.
+- **Регистрация школы** — создаёт school + первого admin за один шаг.
+- **Блочный редактор курсов** — 12 типов блоков: Заголовок, Текст, Список, Изображение, Видео (self-hosted), Видео-ссылка, Файл, Заметка (callout), Код, Цитата, Разделитель, Iframe.
+- **Self-hosted видео через HLS** — загрузка файла → FFmpeg-воркер → транскодинг в 360p/720p/1080p → HLS-сегменты в S3 → HLS.js плеер. Никакого обязательного внешнего SaaS.
+- **Универсальный embed** — YouTube, RuTube, VK, Kinescope, Vimeo, Boomstream одним URL.
+- **Publishing workflow** — DRAFT → PUBLISHED → ARCHIVED с валидацией (обложка, subject, gradeLevel, shortDescription).
+- **Прогресс ученика** — отслеживание просмотра блоков, автоматическое завершение урока когда все блоки пройдены.
+- **Журнал событий (xAPI-like)** — append-only таблица `learning_event` для аналитики.
+- **Объектное хранилище** — загрузка файлов через presigned URL, MinIO для self-host или любой S3-совместимый сервис.
+- **E2E тесты** — Playwright (auth, course creation, student journey).
+
+## Видео в Парта5
+
+### Self-hosted (рекомендуется для self-host установок)
+
+Загрузка видеофайла → BullMQ-задача → FFmpeg-воркер → HLS-транскодинг (360p/720p/1080p, `master.m3u8` + сегменты) → S3/MinIO. Плеер — HLS.js с адаптивным битрейтом. Школа полностью автономна: `docker compose up` — и всё работает без внешних сервисов.
+
+### Универсальный embed
+
+Для школ, у которых видео уже есть на YouTube или другом хостинге — вставь ссылку, система автоматически определит провайдера (YouTube, RuTube, VK, Kinescope, Vimeo, Boomstream) и создаст безопасный iframe.
+
+Коммерческие SaaS-видеохостинги (Kinescope, Boomstream и т.д.) — опциональные модули, не входят в открытое ядро.
 
 ## Зачем
 
@@ -47,6 +98,14 @@
 ## Поддерживаемые стандарты
 
 LTI 1.3 Advantage · SCORM 1.2 (импорт) · xAPI / cmi5 · H5P · Moodle XML / GIFT / QTI 2.0
+
+## Скриншоты
+
+[скриншот: редактор курса — добавление блоков]  
+[скриншот: ученик — урок с прогрессом по блокам]  
+[скриншот: gradebook (Phase 2)]
+
+> Реальные скриншоты будут добавлены после запуска демо-стенда.
 
 ## Дорожная карта
 
