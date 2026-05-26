@@ -73,6 +73,13 @@ export const progressRouter = router({
         });
         if (!enrollment) return { ok: true, lessonCompleted: false };
 
+        const existing = await tx.blockView.findUnique({
+          where: { blockId_userId: { blockId, userId } },
+          select: { completedAt: true },
+        });
+        const wasAlreadyCompleted =
+          existing?.completedAt !== null && existing?.completedAt !== undefined;
+
         await tx.blockView.upsert({
           where: { blockId_userId: { blockId, userId } },
           create: {
@@ -95,29 +102,39 @@ export const progressRouter = router({
         });
         const totalCount = await tx.contentBlock.count({ where: { lessonId } });
 
-        void logEvent({
-          schoolId,
-          actorId: userId,
-          verb: 'completed',
-          objectType: 'block',
-          objectId: blockId,
-          result: { lessonId, blockType, watchedSeconds: input.watchedSeconds ?? null },
-        });
+        if (!wasAlreadyCompleted) {
+          void logEvent({
+            schoolId,
+            actorId: userId,
+            verb: 'completed',
+            objectType: 'block',
+            objectId: blockId,
+            result: { lessonId, blockType, watchedSeconds: input.watchedSeconds ?? null },
+          });
+        }
 
         if (completedCount >= totalCount) {
+          const existingLessonCompletion = await tx.lessonCompletion.findUnique({
+            where: { lessonId_userId: { lessonId, userId } },
+            select: { id: true },
+          });
+
           await tx.lessonCompletion.upsert({
             where: { lessonId_userId: { lessonId, userId } },
             create: { lessonId, userId, schoolId },
             update: {},
           });
-          void logEvent({
-            schoolId,
-            actorId: userId,
-            verb: 'completed',
-            objectType: 'lesson',
-            objectId: lessonId,
-            result: { courseId },
-          });
+
+          if (!existingLessonCompletion) {
+            void logEvent({
+              schoolId,
+              actorId: userId,
+              verb: 'completed',
+              objectType: 'lesson',
+              objectId: lessonId,
+              result: { courseId },
+            });
+          }
         }
 
         return { ok: true, lessonCompleted: completedCount >= totalCount };

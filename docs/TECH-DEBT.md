@@ -36,6 +36,18 @@
 
 ---
 
+## TD-003 — YouTube IFrame API не интегрирован для progress tracking
+
+**Где:** `apps/web/components/embed-player.tsx`.
+**Что:** Для YouTube embed-видео нет автоматического определения момента «досмотрел» через YouTube IFrame Player API (`onStateChange` → state=ENDED). Сейчас стоит кнопка «Я посмотрел», ученик должен нажать вручную.
+**Почему:** В шаге 7 Phase 1 решили не растягивать шаг — YouTube требует загрузки `https://www.youtube.com/iframe_api` и обёртки над `window.YT.Player`. Остальные провайдеры (RuTube/VK/Vimeo/Kinescope/Boomstream/Дзен) имеют разные postMessage API, унификация — отдельная задача.
+**Риск:** UX чуть хуже для YouTube-блоков — ученик может забыть нажать «Я посмотрел». LessonCompletion не сработает автоматически.
+**Фикс:** добавить опциональный YouTube IFrame API: динамически загружать скрипт, создавать Player с events, при state === YT.PlayerState.ENDED вызывать onCompleted. Возможно сделать общий interface `EmbedPlayerProvider` с capability `hasProgressEvents`.
+**Приоритет:** P3 (UX-улучшение, не блокер).
+**Зафиксировано:** Phase 1 шаг 7 (2026-05-26).
+
+---
+
 ## Шаблон для новых записей
 
 ```

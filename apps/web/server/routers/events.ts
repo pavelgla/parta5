@@ -19,6 +19,6 @@ export const eventsRouter = router({
         take: input.limit,
       });
 
-      return events;
+      return events.map((e) => ({ ...e, id: e.id.toString() }));
     }),
 });
