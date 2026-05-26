@@ -50,12 +50,12 @@ bw get password "parta5/postgres/local"
 - [x] Шаг 2 — Next.js 15 + Tailwind в `apps/web`
 - [x] Шаг 3 — Prisma schema и миграция в `packages/db`
 - [x] Шаг 4 — Row Level Security + Prisma middleware для мульти-тенантности
-- [ ] Шаг 5 — Auth.js v5 с email/password, страницы `/signup` и `/login`
-- [ ] Шаг 6 — tRPC v11 + базовые роутеры
-- [ ] Шаг 7 — UI редактора курса (`/courses`, `/courses/new`, `/courses/[id]/edit`)
-- [ ] Шаг 8 — UI ученика (`/learn`, `/learn/[courseId]`) + модель `LessonCompletion`
-- [ ] Шаг 9 — Docker Compose для self-host
-- [ ] Шаг 10 — GitHub Actions CI + ADR-001
+- [x] Шаг 5 — Auth.js v5 с email/password, страницы `/signup` и `/login`
+- [x] Шаг 6 — tRPC v11 + базовые роутеры
+- [x] Шаг 7 — UI редактора курса (`/courses`, `/courses/new`, `/courses/[id]/edit`)
+- [x] Шаг 8 — UI ученика (`/learn`, `/learn/[courseId]`) + модель `LessonCompletion`
+- [x] Шаг 9 — Docker Compose для self-host
+- [x] Шаг 10 — GitHub Actions CI + ADR-001 и ADR-002
 
 ---
 
@@ -513,7 +513,7 @@ chore(ci): add GitHub Actions for lint/typecheck/test + ADR-001 and ADR-002
 1. Обнови `00-parta5.md` в Obsidian — отметь Phase 0 как complete, статус проекта → Phase 1.
 2. Создай git tag: `git tag -a v0.1.0-phase0 -m "Phase 0 complete: skeleton + multi-tenancy + auth"`.
 3. Push на GitHub и зеркало GitFlic (если уже создан).
-4. Сообщи Paul, что Phase 0 закрыт, и попроси у него реальный `.mbz` из Moodle для следующей фазы импортёра (или подтверждение, что переходим к Phase 1 — UI блочного редактора с видео-блоком Kinescope).
+4. Сообщи Paul, что Phase 0 закрыт. Дальше — Phase 1 (см. `phase-1.md`): расширенный блочный редактор, self-hosted видео через FFmpeg+HLS, универсальный embed, прогресс по блокам.
 
 ---
 

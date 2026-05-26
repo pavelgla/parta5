@@ -28,7 +28,7 @@
 | ORM                 | Prisma                                                                 |
 | Кеш + очереди       | Redis + BullMQ                                                         |
 | Объектное хранилище | S3-совместимое (Yandex Object Storage / VK Cloud / MinIO)              |
-| Видео               | Kinescope (внешний сервис, embed + API)                                |
+| Видео               | Self-hosted: FFmpeg-воркер → HLS в S3 → HLS.js плеер. Плюс универсальный embed (YouTube/RuTube/VK/Kinescope/Vimeo/Boomstream). Никаких обязательных внешних SaaS. |
 | Аутентификация      | Auth.js (NextAuth) + ЕСИА OIDC для гос-сегмента                        |
 | AI                  | OpenAI API + Anthropic API через единый адаптер, pgvector для RAG      |
 | Уведомления         | SMTP (Unisender Go / Mailopost) + Telegram Bot API + Web Push (PWA)    |
@@ -100,6 +100,24 @@ parta5/
   - Идентификаторы, имена переменных, комментарии в коде — на английском.
   - Документация — на русском (для команды и пользователей).
 
+### Edge runtime и Auth.js — критичный паттерн
+
+Next.js `middleware.ts` запускается в **Edge Runtime** (Cloudflare Workers-подобный sandbox), где НЕТ доступа к Node.js API: `fs`, `crypto`, native bindings, и — **главное — Prisma не работает**. Если попытаться импортировать `@parta5/db` в middleware, билд сломается с непонятной ошибкой про `node:async_hooks` или `bindings`.
+
+**Правильный паттерн Auth.js v5 в этом проекте** (зафиксирован в Phase 0):
+
+- `apps/web/auth.config.ts` — **edge-safe** конфиг: providers, callbacks, jwt/session — БЕЗ Prisma. Это импортируется в middleware.
+- `apps/web/auth.ts` — **node-side**: расширяет `auth.config.ts`, добавляет PrismaAdapter, Credentials provider с bcrypt-проверкой. Это импортируется в server actions, route handlers, server components.
+- `apps/web/middleware.ts` — импортирует ТОЛЬКО из `auth.config.ts` через `NextAuth(authConfig).auth`.
+
+**НЕ** ломай этот паттерн:
+
+- НЕ импортируй `@parta5/db`, `bcryptjs`, `node:*`, `fs` в `middleware.ts` или `auth.config.ts`.
+- НЕ объединяй `auth.config.ts` и `auth.ts` в один файл.
+- НЕ добавляй БД-логику в `jwt`/`session` callbacks в `auth.config.ts` — выноси её в server actions, которые перед `signIn` сами читают/пишут в БД.
+
+То же правило применимо к любому коду, который ты захочешь использовать в middleware (например, rate limiting через Redis): он должен быть Edge-совместимым (используй `@upstash/redis` HTTP client, не `ioredis`).
+
 ### Запреты
 
 - **НЕ** использовать AGPL для зависимостей в ядре — это вирус, который заставит открыть весь код. Только MIT / Apache 2.0 / MPL / BSD / ISC.
@@ -109,6 +127,7 @@ parta5/
 - **НЕ** использовать платные шрифты или иконки в open-source ядре.
 - **НЕ** писать `console.log` в продакшен-коде. Использовать `pino` или встроенный логгер.
 - **НЕ** хардкодить токены, ключи, пароли. Только через `process.env` и `.env.example` с описаниями.
+- **НЕ** импортировать Prisma и Node-only зависимости в `middleware.ts` / `auth.config.ts` (см. секцию «Edge runtime» выше).
 
 ---
 
@@ -126,7 +145,8 @@ parta5/
 - First Contentful Paint < 1.5s на 3G.
 - Страница урока должна корректно отображаться **без JavaScript** (для слабых школьных сетей и устаревших устройств).
 - Изображения через Next.js `<Image>` с автоматическим AVIF/WebP.
-- Видео — только embed Kinescope, не self-hosted (FFmpeg-сервер вытянем только при объёме > 10 000 видео).
+- Видео — self-hosted через FFmpeg-воркер с транскодингом в HLS (360p/720p/1080p, master.m3u8 + сегменты в S3). Плеер — HLS.js. Никаких обязательных внешних SaaS — школа ставит `docker compose up` и работает автономно. Для тех, кто не хочет хранить — универсальный embed-блок (YouTube/RuTube/VK/Kinescope/Vimeo/Boomstream).
+- Адаптеры для коммерческих SaaS-видеосервисов — опциональные модули, НЕ в ядре.
 
 ---
 

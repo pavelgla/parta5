@@ -28,7 +28,9 @@ status: phase-0
 
 ## Текущий статус
 
-**🔵 Phase 0** — проектирование. Бренд закреплён, стек выбран, план готов. Готовимся к коду.
+**🟢 Phase 0 — закрыт** (2026-05-26). Все 10 шагов выполнены, 14 коммитов. Платформа умеет: signup школы, логин, CRUD курсов/модулей/уроков/блоков, прохождение учеником с прогрессом, self-host через Docker Compose. CI на GitHub Actions работает.
+
+**🔵 Следующее — Phase 1** (см. `phase-1.md`): блочный редактор Notion-style, self-hosted HLS видео через FFmpeg-воркер, универсальный embed, прогресс по блокам, publishing flow. 4-6 недель.
 
 ---
 
@@ -45,7 +47,7 @@ status: phase-0
 
 - [ ] Создать репозиторий на GitHub
 - [ ] Поднять зеркало на GitFlic.ru (обязательно для реестра ОВП)
-- [ ] Настроить CI на GitHub Actions
+- [x] Настроить CI на GitHub Actions
 
 ### Пилот
 
@@ -53,16 +55,30 @@ status: phase-0
 - [ ] Получить реальный `.mbz` (тестовый курс из demo-Moodle или у пилотной школы)
 - [ ] Зафиксировать ожидания и формат обратной связи с пилотом
 
-### Разработка (Phase 0, 2 недели)
+### Разработка
 
-- [ ] `pnpm` монорепо + Turborepo + TypeScript strict
-- [ ] Next.js 15 App Router + tRPC
-- [ ] Prisma schema c мульти-тенантностью (`school_id` + RLS) с первого коммита
-- [ ] Auth.js с email/password (ЕСИА — позже)
-- [ ] Базовая модель: School → Course → Module → Lesson → ContentBlock
-- [ ] Минимальный UI: создать курс → добавить модуль → добавить урок с текстом → открыть как ученик
-- [ ] Docker Compose для self-host
-- [ ] README с инструкцией запуска
+**Phase 0 (✅ закрыт):**
+
+- [x] `pnpm` монорепо + Turborepo + TypeScript strict
+- [x] Next.js 15 App Router + tRPC
+- [x] Prisma schema с мульти-тенантностью (`school_id` + RLS) с первого коммита
+- [x] Auth.js с email/password (Edge-safe pattern: `auth.config.ts` без Prisma)
+- [x] Базовая модель: School → Course → Module → Lesson → ContentBlock
+- [x] Минимальный UI: создать курс → добавить модуль → урок с текстом → открыть как ученик
+- [x] Docker Compose для self-host
+- [x] README с инструкцией запуска
+
+**Phase 1 (следующее):**
+
+- [ ] 12 типов блоков (HEADING, TEXT, LIST, IMAGE, VIDEO, VIDEO_EMBED, FILE, CALLOUT, CODE, QUOTE, DIVIDER, EMBED_IFRAME)
+- [ ] S3-хранилище через MinIO + пакет `@parta5/storage`
+- [ ] Файловые загрузки через presigned URLs
+- [ ] `apps/worker` + FFmpeg + HLS-транскодинг
+- [ ] Блочный редактор Notion-style с TipTap и dnd-kit
+- [ ] Прогресс по блокам через IntersectionObserver
+- [ ] LearningEvent (xAPI-like) журнал
+- [ ] Publishing flow с валидацией и превью
+- [ ] Демо-курс RunStart + Playwright e2e
 
 ---
 
@@ -76,7 +92,7 @@ status: phase-0
 | Бизнес-модель      | **open-core**                      | Бесплатное ядро для школ + платный SaaS-облако + платные модули           |
 | Стек               | **Next.js 15 + Prisma + Postgres** | Сильные стороны Paul, быстрая итерация, AI-фичи нативно                   |
 | Мульти-тенантность | **с первого коммита**              | Переписывать потом в 10 раз дороже                                        |
-| Видео              | **Kinescope**                      | Российский EdTech-сервис, защита от скачивания, в реестре                 |
+| Видео              | **Self-hosted HLS + embed**        | FFmpeg-воркер в ядре, никаких внешних SaaS обязательно. Embed YouTube/RuTube/VK/Kinescope/Vimeo как опция. Соответствует self-host философии «как Moodle» |
 | Аутентификация     | **Auth.js + ЕСИА OIDC**            | Стандарт для школьного сегмента в РФ                                      |
 
 ---

@@ -1,10 +1,12 @@
-# Phase 1 — MVP контент + видео
+# Phase 1 — MVP контент + видео (self-hosted)
 
 > Исполнительный сценарий для Claude Code. Прочитай этот файл целиком, прочитай `CLAUDE.md`, проверь, что Phase 0 закрыт (`git tag --list "v0.1.0-phase0"`), потом выполняй шаги строго по порядку.
 
-**Цель фазы:** превратить скелет из Phase 0 в полноценный редактор курсов, в котором учитель собирает урок из разных типов блоков (текст, заголовки, изображения, видео, файлы, выноски, код), грузит файлы в S3, встраивает видео из Kinescope, а ученик проходит курс с трекингом прогресса на уровне блоков и сохранением xAPI-like событий.
+**Цель фазы:** превратить скелет из Phase 0 в полноценный редактор курсов, в котором учитель собирает урок из разных типов блоков (текст, заголовки, изображения, видео, файлы, выноски, код), грузит файлы в S3, **хостит видео полностью у себя через FFmpeg+HLS** или вставляет embed из любого внешнего сервиса (YouTube/RuTube/VK/Kinescope/Vimeo), а ученик проходит курс с трекингом прогресса на уровне блоков и сохранением xAPI-like событий.
 
-**После завершения** Paul должен иметь возможность собрать на платформе реальный курс школы бега RunStart как первый пилотный курс.
+**Философия:** Парта5 — это «как Moodle, но современно». Школа ставит `docker compose up` на своём сервере и работает автономно. Никаких обязательных внешних SaaS, никаких «утекут данные». Видео хостится локально, транскодируется локально, стримится локально. Embed внешних — опция для тех, кому проще.
+
+**После завершения** Paul должен иметь возможность собрать на платформе реальный курс школы бега RunStart как первый пилотный курс — с видео полностью на собственной инфре.
 
 ---
 
@@ -22,18 +24,32 @@
 
 ---
 
+## Архитектурное решение: видео
+
+Принято в этой фазе, фиксируется в ADR-003 (создаётся в шаге 4):
+
+- **Self-hosted HLS — дефолт.** mp4/webm от учителя → MinIO/S3 → `apps/worker` через BullMQ берёт задачу → FFmpeg транскодирует в HLS (360p / 720p / 1080p, master.m3u8 + сегменты) → результат обратно в S3 → клиент стримит через HLS.js плеер.
+- **Универсальный embed** — параллельный путь. Учитель вставляет URL, провайдер детектится автоматически (YouTube / RuTube / VK Видео / Kinescope / Vimeo / Boomstream / Дзен), показываем их iframe.
+- **Адаптеры коммерческих SaaS** (Kinescope/Boomstream/PlatformCraft/Yandex Cloud Stream) — НЕ в Phase 1. Закладываем только `VideoAdapter` интерфейс, реализации появятся как опциональные модули в Phase 4-7. В ядре их нет.
+
+Это значит:
+
+- Никакого `parta5/kinescope/api-token` в Bitwarden.
+- В docker-compose добавляется новый сервис `worker` с FFmpeg.
+- Появляется `apps/worker` в монорепо.
+- Появляется `packages/video` с интерфейсом и двумя реализациями (SelfHostedHLS, ExternalEmbed).
+
+---
+
 ## Секреты через Bitwarden
 
-Новые item'ы для Phase 1:
+| Item в Bitwarden | Где используется | Как получить |
+|---|---|---|
+| `parta5/s3/minio-local-root-user` | Локальный MinIO | Сгенерируй (например `parta5admin`), положи в Bitwarden |
+| `parta5/s3/minio-local-root-password` | Локальный MinIO | `openssl rand -hex 24`, положи в Bitwarden |
+| `parta5/s3/bucket-name` | Имя бакета | По умолчанию `parta5-uploads` |
 
-| Item в Bitwarden                      | Где используется                  | Как получить                                                                                              |
-| ------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `parta5/kinescope/api-token`          | Загрузка видео и проверка статуса | Зарегистрируйся на kinescope.io → Settings → API → создай токен. Тариф «Старт» бесплатный для разработки. |
-| `parta5/s3/minio-local-root-user`     | Локальный MinIO                   | Сгенерируй (можно `parta5admin`), положи в Bitwarden                                                      |
-| `parta5/s3/minio-local-root-password` | Локальный MinIO                   | Сгенерируй `openssl rand -hex 24`, положи в Bitwarden                                                     |
-| `parta5/s3/bucket-name`               | Имя бакета                        | По умолчанию `parta5-uploads`                                                                             |
-
-Если какого-то item'а нет — сгенерируй значение, положи в Bitwarden через `bw create item`, продолжай.
+Никаких внешних API-токенов для видео в этой фазе не нужно. Embed-блоки работают без API — просто iframe по URL.
 
 ---
 
@@ -42,10 +58,10 @@
 - [ ] Шаг 1 — расширить модель `ContentBlock` (12 типов блоков) + миграция
 - [ ] Шаг 2 — S3-хранилище: MinIO в docker-compose + `@parta5/storage` пакет
 - [ ] Шаг 3 — загрузка файлов: `FileAsset` модель + presigned URLs + UI-компонент
-- [ ] Шаг 4 — интеграция Kinescope: API клиент + загрузка + embed + webhook'и
+- [ ] Шаг 4 — `apps/worker` + FFmpeg + HLS-транскодинг + `@parta5/video` с двумя адаптерами
 - [ ] Шаг 5 — блочный редактор Notion-style с TipTap и `dnd-kit`
 - [ ] Шаг 6 — расширенные метаданные курса: cover, предмет, класс, rich-text описание
-- [ ] Шаг 7 — трекинг прогресса на уровне блоков (`BlockView` + IntersectionObserver + Kinescope events)
+- [ ] Шаг 7 — трекинг прогресса на уровне блоков (`BlockView` + IntersectionObserver + HLS.js events)
 - [ ] Шаг 8 — таблица `LearningEvent` (xAPI-like) + API логирования
 - [ ] Шаг 9 — publishing flow: DRAFT → PUBLISHED → ARCHIVED + превью + валидация
 - [ ] Шаг 10 — демо-курс + e2e тесты в Playwright + обновление README
@@ -65,25 +81,24 @@
      TEXT           // rich text, data: { html: string, text: string } — html генерируется из TipTap
      LIST           // data: { ordered: bool, items: string[] }
      IMAGE          // data: { fileAssetId: uuid, caption?: string, alt?: string }
-     VIDEO_EMBED    // YouTube/RuTube/VK, data: { provider: 'youtube'|'rutube'|'vk', url: string, embedUrl: string }
-     VIDEO_KINESCOPE  // data: { kinescopeVideoId: string, posterUrl?: string, durationSeconds?: number }
+     VIDEO          // self-hosted, data: { videoAssetId: uuid }
+     VIDEO_EMBED    // внешний провайдер, data: { provider: string, url: string, embedUrl: string, providerVideoId?: string }
      FILE           // data: { fileAssetId: uuid, displayName: string }
      CALLOUT        // data: { variant: 'info'|'warning'|'success'|'danger', text: string }
      CODE           // data: { language: string, code: string }
      QUOTE          // data: { text: string, author?: string }
      DIVIDER        // data: {}
-     EMBED_IFRAME   // generic iframe, data: { url: string, height: number } — для admin only, не для учителей
+     EMBED_IFRAME   // generic iframe, data: { url: string, height: number } — для admin only
    }
    ```
 2. Удали старые семена TEXT-блоков, которые не подходят под новую структуру. Перепиши сид: используй HEADING + TEXT + DIVIDER.
-3. В Prisma schema добавь зависимости:
-   - `FileAsset` уже понадобится в шаге 3 — пока не добавляй.
-   - Для CODE-блока — никаких внешних таблиц.
+3. Не добавляй модели `FileAsset` и `VideoAsset` — они появятся в шагах 3 и 4. Сейчас в `data` будут лежать только текстовые типы блоков; uuid'ы добавим миграциями в нужных шагах.
 4. Создай миграцию: `prisma migrate dev --name expand_content_block_types`.
 5. Обнови tRPC роутер `block.ts`:
    - `create({lessonId, type, data})` — `data` валидируй через zod discriminated union по `type`. Все 12 вариантов schemas в отдельном файле `apps/web/server/schemas/block-data.ts`.
    - `update({id, data})` — аналогичная валидация.
    - `reorder({lessonId, blockIds: string[]})` — атомарно переставляет order.
+6. Для типов `VIDEO` и `IMAGE` и `FILE`, ссылающихся на ассеты — на этом шаге достаточно валидировать структуру (uuid поле). Существование ассета будем проверять в шагах 3/4.
 
 **Проверка:**
 
@@ -92,10 +107,8 @@ pnpm --filter @parta5/db exec prisma migrate dev
 pnpm --filter @parta5/db exec prisma db seed
 pnpm --filter web typecheck
 
-# Через tRPC создай блоки разных типов:
-# (можно использовать prisma studio для ручной проверки)
+# Через Prisma Studio руками создай блок type=CALLOUT, data={variant:'info',text:'Привет'} — должен сохраниться.
 pnpm --filter @parta5/db exec prisma studio
-# Создай руками ContentBlock с type=CALLOUT, data={variant:'info',text:'Привет'} — должен сохраниться.
 ```
 
 **Коммит:**
@@ -118,8 +131,8 @@ feat(db): expand ContentBlock with 12 block types and zod schemas
      image: minio/minio:latest
      command: server /data --console-address ":9001"
      ports:
-       - '9000:9000' # API
-       - '9001:9001' # Web console
+       - "9000:9000"  # API
+       - "9001:9001"  # Web console
      environment:
        MINIO_ROOT_USER: ${MINIO_ROOT_USER}
        MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
@@ -156,14 +169,12 @@ feat(db): expand ContentBlock with 12 block types and zod schemas
    - `src/index.ts` — экспорт `StorageAdapter` интерфейса:
      ```ts
      export interface StorageAdapter {
-       presignUpload(
-         key: string,
-         contentType: string,
-         sizeBytes: number,
-       ): Promise<{ url: string; fields?: Record<string, string>; expiresAt: Date }>;
+       presignUpload(key: string, contentType: string, sizeBytes: number): Promise<{ url: string; fields?: Record<string,string>; expiresAt: Date }>;
        publicUrl(key: string): string;
        delete(key: string): Promise<void>;
        headObject(key: string): Promise<{ size: number; contentType: string } | null>;
+       getObjectStream(key: string): Promise<NodeJS.ReadableStream>;   // для воркера, чтобы стримить файл в FFmpeg
+       putObjectFromPath(key: string, localPath: string, contentType: string): Promise<void>;  // для воркера, выгрузка HLS-сегментов
      }
      ```
    - `src/s3.ts` — реализация `S3StorageAdapter` использующая `@aws-sdk/client-s3` (работает и с MinIO, и с Yandex Object Storage, и с AWS S3 — endpoint конфигурируется).
@@ -193,7 +204,7 @@ feat(storage): add S3-compatible adapter with MinIO docker service
 
 ## Шаг 3 — загрузка файлов: `FileAsset` + presigned URLs + UI
 
-**Цель:** учитель загружает файл/картинку через браузер прямо в S3 по presigned URL, минуя сервер.
+**Цель:** учитель загружает изображения и файлы (PDF, doc, zip) через браузер прямо в S3 по presigned URL, минуя сервер. Видео — отдельная история в шаге 4.
 
 **Что сделать:**
 
@@ -217,27 +228,25 @@ feat(storage): add S3-compatible adapter with MinIO docker service
    ```
    Миграция.
 2. tRPC роутер `file.ts` (в `apps/web/server/routers/file.ts`):
-   - `requestUpload({originalName, mimeType, sizeBytes})` → создаёт `FileAsset` в статусе PENDING, возвращает `{fileAssetId, uploadUrl, key, expiresAt}`. Серверная валидация: размер ≤ 50 MB для изображений/файлов, ≤ 500 MB для видео (если type предусмотрен в будущем). MIME-whitelist (`image/*`, `application/pdf`, `application/zip`, etc.).
+   - `requestUpload({originalName, mimeType, sizeBytes})` → создаёт `FileAsset` в статусе PENDING, возвращает `{fileAssetId, uploadUrl, key, expiresAt}`. Серверная валидация: размер ≤ 50 MB для изображений/файлов. MIME-whitelist для этого роутера (`image/png`, `image/jpeg`, `image/webp`, `application/pdf`, `application/zip`, `application/msword`, `application/vnd.openxmlformats-*`). Видео сюда **не** пускаем — для них отдельный путь в шаге 4.
    - `confirmUpload({fileAssetId})` → вызывает `storage.headObject(key)`, если файл реально загружен — статус UPLOADED. Если нет — возвращает ошибку.
    - `delete({fileAssetId})` → soft delete (статус DELETED) + `storage.delete(key)`.
 3. UI-компонент `apps/web/components/file-upload.tsx` (client component):
    - Props: `accept` (MIME маска), `maxSizeMB`, `onUploaded(fileAsset)`.
    - Использует `fetch(uploadUrl, { method: 'PUT', body: file })` с прогресс-баром через `XMLHttpRequest` (fetch не даёт upload progress).
    - После завершения — вызывает `confirmUpload`, потом колбэк.
-4. Интеграция в редактор курсов: блок IMAGE и FILE открывают `FileUpload` модалку. После загрузки в `block.data` пишется `{fileAssetId, originalName, mimeType}`.
+4. Интеграция в редактор курсов (Phase 0 версия редактора — заглушка, полноценный будет в шаге 5): блок IMAGE и FILE открывают `FileUpload` модалку. После загрузки в `block.data` пишется `{fileAssetId, originalName, mimeType}`.
 5. Helper `apps/web/lib/file-url.ts` — `getFileUrl(asset: FileAsset): string` возвращает `storage.publicUrl(asset.key)` (на сервере) или прокси-роут (для приватных файлов — пока не делаем, все uploaded = публичные).
 
 **Проверка:**
 
 Ручная:
-
 1. Открой `/courses/[id]/edit`.
 2. Добавь блок IMAGE → загрузи PNG → должен появиться в редакторе.
 3. Сделай рефреш — картинка осталась.
 
 ```bash
 pnpm --filter web typecheck
-# unit-test для requestUpload валидации
 pnpm --filter web test
 ```
 
@@ -249,60 +258,153 @@ feat(files): add FileAsset model and browser uploads via presigned URLs
 
 ---
 
-## Шаг 4 — интеграция Kinescope
+## Шаг 4 — `apps/worker` + FFmpeg + HLS-транскодинг + `@parta5/video`
 
-**Цель:** учитель загружает видео в Kinescope из браузера и встраивает в урок одним кликом. Webhook'и обновляют статус.
+**Цель:** self-hosted видео из коробки. Учитель загружает mp4 → BullMQ-воркер с FFmpeg делает HLS → ученик смотрит через адаптивный плеер. Плюс универсальный embed-блок для тех, кто хочет YouTube/RuTube/VK.
 
-**Что сделать:**
+**Это самый большой шаг в Phase 1.** Разбит на 4 под-шага. Коммить каждый отдельно — потом отметишь шаг 4 целиком.
 
-1. Создай пакет `packages/kinescope`:
-   - `package.json` name `@parta5/kinescope`, deps: `zod`.
-   - `src/client.ts` — `KinescopeClient` класс с методами:
-     - `createVideoUpload({title, parentId}): Promise<{videoId, uploadUrl, expiresAt}>` — POST `https://uploader.kinescope.io/v2/init` (см. их API доки).
-     - `getVideo(videoId): Promise<KinescopeVideo>` — GET `/videos/{id}`.
-     - `deleteVideo(videoId): Promise<void>`.
-     - `verifyWebhookSignature(rawBody, signature): boolean` — HMAC-SHA256 по секрету.
-   - `src/types.ts` — zod schemas для ответов API.
-   - Конструктор принимает `{apiToken, webhookSecret, baseUrl?}` — токен из Bitwarden.
-2. **Перед написанием кода ОБЯЗАТЕЛЬНО** прочитай актуальную документацию Kinescope API: https://documentation.kinescope.io/. API может отличаться от моего описания — следуй документации, а не моему гайду. Если расхождения — выбери документацию.
-3. tRPC роутер `video.ts`:
-   - `requestKinescopeUpload({title})` → вызывает `client.createVideoUpload`, сохраняет связь `Video {id, schoolId, kinescopeVideoId, title, status: 'UPLOADING', durationSeconds?: null}` в БД, возвращает `{videoId, uploadUrl}`.
-   - `getVideo({videoId})` → возвращает текущий статус из БД (после первого фетча из Kinescope мы кэшируем локально).
-4. Webhook handler `apps/web/app/api/webhooks/kinescope/route.ts`:
-   - POST, проверяет подпись через `client.verifyWebhookSignature(rawBody, headers['x-signature'])`.
-   - На события `video.transcoded` / `video.processed` обновляет `Video.status = 'READY'`, `durationSeconds`, `posterUrl`.
-   - Возвращает 200 OK.
-5. UI: в редакторе курсов блок VIDEO_KINESCOPE открывает модалку:
-   - Title input + drag-and-drop файла.
-   - При выборе файла → `requestKinescopeUpload` → upload через fetch на `uploadUrl` с прогрессом.
-   - После завершения upload — блок сохраняется с `data.kinescopeVideoId`.
-   - Если статус ещё `UPLOADING`/`TRANSCODING` — показывать placeholder «Видео обрабатывается».
-6. Плеер: `apps/web/components/kinescope-player.tsx` (client):
-   - Использует `@kinescope/react-kinescope-player` (npm пакет от вендора).
-   - Props: `videoId`, `onProgress({currentTime, duration})`, `onComplete()`.
-   - Onprogress эмитит события каждые 5 сек — это пригодится в шаге 7 для трекинга прогресса.
-7. В `.env.example` добавь `KINESCOPE_API_TOKEN=`, `KINESCOPE_WEBHOOK_SECRET=`.
+### 4а — Архитектурное решение ADR-003
 
-**Проверка:**
+1. Создай `docs/architecture/0003-video-strategy.md` с описанием решения: self-hosted HLS как дефолт + универсальный embed. Альтернативы (только embed; PeerTube; MediaCMS; адаптеры SaaS) рассмотрены и отклонены — кратко обоснуй.
+2. Коммит: `docs(architecture): ADR-003 video strategy (self-hosted HLS + embed)`.
 
-Ручная:
+### 4б — Модель данных и пакет `@parta5/video`
 
-1. Получи Kinescope API token, положи в Bitwarden, добавь в `.env`.
-2. Создай блок VIDEO_KINESCOPE в курсе.
-3. Загрузи короткое видео (10 сек).
-4. Подожди транскодирование (1-2 мин) — статус сменится на READY (через webhook или ручной poll).
-5. Открой урок как ученик — видео играется.
+1. В Prisma schema добавь:
+   ```prisma
+   model VideoAsset {
+     id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+     schoolId        String   @db.Uuid
+     uploaderId     String   @db.Uuid
+     sourceKey       String   @unique               // оригинальный mp4 в S3
+     hlsMasterKey    String?                        // ключ master.m3u8 после транскодинга
+     posterKey       String?                        // постер (jpg первого кадра)
+     durationSeconds Int?
+     width           Int?
+     height          Int?
+     status          VideoAssetStatus @default(PENDING)  // PENDING → UPLOADING → TRANSCODING → READY → FAILED
+     errorMessage    String?
+     createdAt       DateTime @default(now())
+     uploader        User     @relation(fields: [uploaderId], references: [id])
+     @@index([schoolId])
+     @@index([status])
+   }
+   enum VideoAssetStatus { PENDING UPLOADING TRANSCODING READY FAILED }
+   ```
+   Миграция.
+2. Создай пакет `packages/video`:
+   - `package.json` name `@parta5/video`, dep `zod`, peer `@parta5/storage`.
+   - `src/index.ts` — экспорт `VideoAdapter` интерфейса:
+     ```ts
+     export type VideoStatus = 'pending'|'uploading'|'transcoding'|'ready'|'failed';
+     export interface VideoAdapter {
+       requestUpload(input: {schoolId: string; originalName: string; sizeBytes: number; uploaderId: string}): Promise<{videoAssetId: string; uploadUrl: string; key: string; expiresAt: Date}>;
+       confirmUploaded(videoAssetId: string): Promise<void>;
+       getStatus(videoAssetId: string): Promise<{status: VideoStatus; hlsPlaylistUrl?: string; posterUrl?: string; durationSeconds?: number}>;
+       delete(videoAssetId: string): Promise<void>;
+     }
+     ```
+   - `src/self-hosted.ts` — `SelfHostedHLSVideoAdapter` (использует `StorageAdapter` + `Queue` из `bullmq`):
+     - `requestUpload` создаёт `VideoAsset` (status PENDING), presign upload URL для S3, возвращает.
+     - `confirmUploaded` ставит status UPLOADING, кладёт job `transcode-video` в очередь `video-transcode`, возвращает.
+     - `getStatus` читает из БД.
+     - `delete` удаляет S3-объекты (source + HLS + poster) и помечает status FAILED → удаляет запись.
+   - `src/embed/index.ts` — `parseEmbedUrl(url: string): {provider: string; embedUrl: string; videoId?: string} | null` — детект провайдеров:
+     - YouTube: `youtube.com/watch?v=ID`, `youtu.be/ID` → `youtube.com/embed/ID`.
+     - RuTube: `rutube.ru/video/ID/` → `rutube.ru/play/embed/ID`.
+     - VK Видео: `vk.com/video-OWNER_ID`, `vkvideo.ru/video-OWNER_ID` → `vk.com/video_ext.php?oid=...&id=...`.
+     - Kinescope: `kinescope.io/ID` → `kinescope.io/embed/ID`.
+     - Vimeo: `vimeo.com/ID` → `player.vimeo.com/video/ID`.
+     - Boomstream: `play.boomstream.com/CODE` → `play.boomstream.com/CODE?embed=1`.
+     - Дзен: `dzen.ru/video/watch/ID` → embed URL по их доке.
+     - Все паттерны вынеси в `src/embed/providers.ts` массив `{provider, urlPattern: RegExp, buildEmbedUrl: (match) => string}`.
+   - Никаких HTTP-запросов в `parseEmbedUrl` — только парсинг URL. Это важно для производительности и оффлайн-теста.
+3. Юнит-тесты на `parseEmbedUrl` для каждого провайдера — Vitest. Покрытие 100%.
+
+### 4в — `apps/worker` процесс с FFmpeg
+
+1. Создай новое приложение `apps/worker` в монорепо:
+   - `apps/worker/package.json` — name `@parta5/worker`, deps: `bullmq`, `ioredis`, `@parta5/db`, `@parta5/storage`, `@parta5/video`, `fluent-ffmpeg`, `@ffmpeg-installer/ffmpeg`, `@ffprobe-installer/ffprobe`, `pino`, `pino-pretty` (dev).
+   - `apps/worker/src/index.ts` — точка входа. Подключает Redis (`REDIS_URL` из env), создаёт `Worker` для очереди `video-transcode`.
+   - `apps/worker/src/jobs/transcode-video.ts` — обработчик:
+     1. Получает `{videoAssetId}` из job.
+     2. Читает `VideoAsset` из БД.
+     3. Обновляет status на `TRANSCODING`.
+     4. Скачивает source mp4 из S3 в tmp-папку (`fs.mkdtemp`).
+     5. `ffprobe` — получает duration, width, height. Записывает в БД.
+     6. Генерирует poster (`ffmpeg -i source.mp4 -vframes 1 -an poster.jpg`). Загружает в S3 (`schools/{schoolId}/posters/{videoAssetId}.jpg`).
+     7. Транскодирует в HLS три варианта (360p, 720p, 1080p) одним FFmpeg-вызовом через `-var_stream_map`. Создаёт `master.m3u8` со всеми вариантами.
+     8. Загружает все `.m3u8` и `.ts` сегменты в S3 (`schools/{schoolId}/hls/{videoAssetId}/...`).
+     9. Обновляет `VideoAsset`: `status = READY`, `hlsMasterKey`, `posterKey`, `durationSeconds`, `width`, `height`.
+     10. Если на любом шаге ошибка — `status = FAILED`, `errorMessage`. **Без retry** — повторно загружать видео учитель будет руками (в Phase 1 ОК).
+     11. Чистит tmp-папку.
+   - `apps/worker/Dockerfile` — multi-stage: ставит FFmpeg через `apt-get install ffmpeg` (нужно для production) или через `@ffmpeg-installer/ffmpeg` (для dev — но для production это слишком хрупко, в production через apt).
+2. В `docker-compose.yml` добавь сервис `worker`:
+   ```yaml
+   worker:
+     build:
+       context: .
+       dockerfile: apps/worker/Dockerfile
+     environment:
+       DATABASE_URL: ${DATABASE_URL}
+       REDIS_URL: redis://redis:6379
+       S3_*: (как у web)
+     depends_on: [postgres, redis, minio]
+   ```
+3. Worker должен запускаться в локальной разработке через `pnpm --filter @parta5/worker dev` (использует `tsx watch`).
+
+### 4г — Интеграция в `apps/web`
+
+1. tRPC роутер `video.ts`:
+   - `requestUpload({originalName, sizeBytes})` → `videoAdapter.requestUpload(...)` + возвращает `{videoAssetId, uploadUrl, expiresAt}`. Лимит: ≤ 1 GB и mp4/webm/mov только.
+   - `confirmUploaded({videoAssetId})` → `videoAdapter.confirmUploaded(...)` (ставит в очередь транскодинга).
+   - `getVideo({videoAssetId})` → `videoAdapter.getStatus(...)`.
+   - `delete({videoAssetId})` → `videoAdapter.delete(...)`.
+   - Все вызовы — внутри `withTenant(schoolId, ...)`.
+2. tRPC роутер `embed.ts`:
+   - `parseUrl({url})` → возвращает `parseEmbedUrl(url)` из `@parta5/video`. Server side — потому что регэкспы потом будем дополнять без редеплоя фронта.
+3. UI-компонент `apps/web/components/video-uploader.tsx` (client):
+   - Drag-and-drop mp4 → `requestUpload` → upload через XMLHttpRequest с прогресс-баром → `confirmUploaded`.
+   - Опрос статуса каждые 5 сек через `getVideo`, пока не READY/FAILED. Прогресс-индикатор в три стадии: загрузка / транскодинг / готово.
+4. UI-компонент `apps/web/components/hls-player.tsx` (client):
+   - Зависимость: `hls.js`.
+   - Props: `videoAssetId`, `onTimeUpdate({currentTime, duration})`, `onEnded()`.
+   - Получает `hlsPlaylistUrl` из `getVideo`, инициализирует HLS.js, рендерит `<video>` с poster. На Safari — нативный HLS без hls.js.
+5. UI-компонент `apps/web/components/embed-player.tsx` (client):
+   - Props: `provider`, `embedUrl`.
+   - Рендерит `<iframe>` с правильными `allow`-атрибутами (autoplay; encrypted-media; picture-in-picture).
+6. Заглушки в редакторе курсов (полноценный редактор будет в шаге 5):
+   - Блок `VIDEO` — кнопка «Загрузить видео» → `<VideoUploader>` → после READY сохраняется в `block.data = { videoAssetId }`.
+   - Блок `VIDEO_EMBED` — текстовое поле с URL → `embed.parseUrl` → сохраняется `{ provider, url, embedUrl }`. Превью embed под полем.
+
+**Проверка шага 4:**
 
 ```bash
-pnpm --filter @parta5/kinescope test
-# юнит-тест на verifyWebhookSignature
-pnpm --filter web typecheck
+# Поднять весь стек локально
+docker compose up -d postgres redis minio minio-init worker
+sleep 5
+docker compose logs worker | tail -10   # должен висеть, ждать jobs
+
+pnpm --filter @parta5/db exec prisma migrate dev
+pnpm --filter @parta5/video test         # все embed-провайдеры пройдены
+
+pnpm --filter web dev &
+sleep 5
+
+# Ручная проверка:
+# 1. Логин как учитель.
+# 2. Создай блок VIDEO, загрузи короткий mp4 (10-30 сек).
+# 3. В Prisma Studio проверь VideoAsset — status проходит PENDING → UPLOADING → TRANSCODING → READY.
+# 4. В MinIO Console (http://localhost:9001) проверь, что появились файлы в schools/.../hls/.../master.m3u8.
+# 5. Открой урок как ученик — HLS-плеер играет видео.
+# 6. Создай блок VIDEO_EMBED, вставь URL с YouTube или RuTube — embed работает.
 ```
 
-**Коммит:**
+**Финальный коммит шага 4 (после 4а-4г):**
 
 ```
-feat(video): integrate Kinescope upload, embed and webhooks
+feat(video): self-hosted HLS transcoding worker and universal embed adapter
 ```
 
 ---
@@ -325,17 +427,17 @@ feat(video): integrate Kinescope upload, embed and webhooks
      - `HeadingBlock` (TipTap, h1/h2/h3 переключатель)
      - `TextBlock` (TipTap с базовым набором: bold, italic, link, code, lists — без heading'ов, заголовки — отдельный блок)
      - `ListBlock` (ordered/unordered)
-     - `ImageBlock` (картинка + alt + caption)
-     - `VideoEmbedBlock` (поле URL → детект провайдера → embed)
-     - `VideoKinescopeBlock` (модалка upload или выбор из библиотеки)
-     - `FileBlock` (upload + display name)
+     - `ImageBlock` (картинка + alt + caption через `<FileUpload>`)
+     - `VideoBlock` (self-hosted, через `<VideoUploader>` + `<HlsPlayer>`)
+     - `VideoEmbedBlock` (поле URL → детект провайдера → `<EmbedPlayer>`)
+     - `FileBlock` (загрузка + display name)
      - `CalloutBlock` (variant select + text)
      - `CodeBlock` (language select + textarea с моноширинным шрифтом, без подсветки в Phase 1)
      - `QuoteBlock`
      - `DividerBlock` (просто `<hr>`)
-3. Автосохранение: каждый блок при изменении вызывает `trpc.block.update` с debounce 500ms. Индикатор «Сохранено» / «Сохраняется...» в углу страницы.
+3. Автосохранение: каждый блок при изменении вызывает `trpc.block.update` с debounce 500 ms. Индикатор «Сохранено» / «Сохраняется...» в углу страницы.
 4. Drag-and-drop: при отпускании — `trpc.block.reorder({lessonId, blockIds})`. Оптимистично обновлять локальный state.
-5. Слэш-меню `<BlockTypeMenu>`: 12 типов блоков с иконками и описаниями. Поиск по названию (фильтр). Кнопка enter — выбрать.
+5. Слэш-меню `<BlockTypeMenu>`: 12 типов блоков с иконками и описаниями. Поиск по названию (фильтр). Кнопка Enter — выбрать.
 6. Поведение клавиатуры:
    - Backspace в начале пустого блока → удалить блок и переместить фокус в предыдущий.
    - Enter в TEXT блоке → создать новый TEXT блок снизу.
@@ -345,11 +447,10 @@ feat(video): integrate Kinescope upload, embed and webhooks
 **Проверка:**
 
 Ручная:
-
-1. Открой `/courses/[id]/edit/[lessonId]` (новый URL для редактирования урока).
+1. Открой `/courses/[id]/edit/[lessonId]`.
 2. Добавь блоки разных типов через «/» меню.
 3. Перетащи блок drag-and-drop.
-4. Отредактируй текст — через 500ms видишь «Сохранено».
+4. Отредактируй текст — через 500 ms видишь «Сохранено».
 5. Рефреш — всё на месте.
 
 ```bash
@@ -375,7 +476,7 @@ feat(editor): notion-style block editor with TipTap and dnd-kit
    ```prisma
    coverFileAssetId String?  @db.Uuid
    coverFileAsset   FileAsset? @relation(fields: [coverFileAssetId], references: [id])
-   subject          String?           // school subject: 'biology', 'math', 'russian'... справочник в коде
+   subject          String?           // school subject: 'biology', 'math', 'russian'...
    gradeLevel       Int?              // 5..11
    shortDescription String?           // 1-2 предложения для списков
    longDescription  Json?             // TipTap content
@@ -404,14 +505,13 @@ feat(editor): notion-style block editor with TipTap and dnd-kit
      { id: 'other', label: 'Другое' },
    ] as const;
    ```
-3. Страница `/courses/[id]/edit/settings` — форма настроек курса: title, slug (с валидацией уникальности), subject (select), gradeLevel (select 5-11), shortDescription (input), longDescription (TipTap), coverFileAsset (`FileUpload`).
+3. Страница `/courses/[id]/edit/settings` — форма настроек курса: title, slug (с валидацией уникальности), subject (select), gradeLevel (select 5-11), shortDescription (input), longDescription (TipTap), coverFileAsset (`<FileUpload>`).
 4. На странице `/courses` — список курсов с обложками. Сетка карточек: cover image, title, subject + grade, short description, статус (DRAFT/PUBLISHED).
 5. На странице `/learn` — список курсов ученика с теми же обложками.
 
 **Проверка:**
 
 Ручная:
-
 1. На `/courses/[id]/edit/settings` укажи предмет «Биология», класс 7, загрузи обложку.
 2. На `/courses` карточка курса показывает обложку и метаданные.
 3. На `/learn` ученик видит то же.
@@ -460,20 +560,20 @@ feat(course): add cover image, subject, grade level and rich description
 3. На странице ученика `/learn/[courseId]/[lessonId]`:
    - Каждый блок обёрнут в `<BlockTracker blockId>` (client component):
      - Использует `IntersectionObserver` — когда блок 50% в viewport ≥ 2 сек → `markBlockViewed`.
-     - Для VIDEO_KINESCOPE: подключается к событиям плеера — `onProgress` каждые 5 сек обновляет watchedSeconds, при 90% просмотра → `markBlockCompleted`.
-     - Для остальных типов (TEXT, IMAGE, etc) — viewed = completed автоматически (или по нажатию «Прочитано» внизу урока для всего урока, как было в Phase 0).
+     - Для VIDEO (self-hosted, HLS.js): подписка на `timeupdate` каждые 5 сек обновляет watchedSeconds, при 90% просмотра → `markBlockCompleted`.
+     - Для VIDEO_EMBED: 1) YouTube — через YouTube iframe API можно ловить прогресс, 2) RuTube/VK/прочие iframe — без точного прогресса, считаем completed по клику «Я посмотрел» под плеером.
+     - Для остальных типов (TEXT, IMAGE, etc) — viewed = completed автоматически или по нажатию «Прочитано» внизу урока.
 4. Боковая панель прогресса на `/learn/[courseId]`:
-   - Список уроков с прогресс-баром (например `3/5 блоков`).
+   - Список уроков с прогресс-баром (`3/5 блоков`).
    - Общий прогресс по курсу (`78%`).
 5. Обнови `LessonCompletion` из Phase 0: теперь считаем урок завершённым, если все блоки в нём completed (или 90% — настраиваемо). Триггер при `markBlockCompleted` → пересчитать `LessonCompletion`.
 
 **Проверка:**
 
 Ручная:
-
 1. Открой урок как ученик.
 2. Поскролль до конца — все TEXT/IMAGE блоки помечены viewed (в Prisma Studio проверь BlockView).
-3. Посмотри Kinescope-видео целиком — `watchedSeconds` растёт, в конце completedAt установлен.
+3. Посмотри self-hosted видео целиком — `watchedSeconds` растёт, в конце completedAt установлен.
 4. Боковая панель показывает «3/5 блоков пройдено».
 5. Когда все блоки урока completed → LessonCompletion появилась.
 
@@ -516,15 +616,7 @@ feat(progress): add per-block view tracking with intersection observer and video
    Миграция. **Никаких FK** — это append-only журнал, удалять объекты можно без cascade.
 2. Сервис `apps/web/server/services/learning-events.ts`:
    ```ts
-   export async function logEvent(input: {
-     schoolId;
-     actorId;
-     verb;
-     objectType;
-     objectId;
-     result?;
-     context?;
-   }): Promise<void> {
+   export async function logEvent(input: { schoolId; actorId; verb; objectType; objectId; result?; context? }): Promise<void> {
      await prisma.learningEvent.create({ data: input });
    }
    ```
@@ -540,7 +632,6 @@ feat(progress): add per-block view tracking with intersection observer and video
 **Проверка:**
 
 Ручная:
-
 1. Ученик проходит урок.
 2. На `/admin/events` появились записи `viewed`, `completed` за последние минуты.
 
@@ -548,7 +639,7 @@ feat(progress): add per-block view tracking with intersection observer and video
 pnpm --filter web typecheck
 pnpm --filter @parta5/db exec prisma migrate dev --name learning_events
 
-# проверь индексы — для timestamp DESC должны создаться правильно
+# Проверь индексы — для timestamp DESC должны создаться правильно
 psql $DATABASE_URL -c "\d \"LearningEvent\""
 ```
 
@@ -585,7 +676,6 @@ feat(analytics): add xAPI-like LearningEvent append-only log
 **Проверка:**
 
 Ручная:
-
 1. Создай курс без обложки → попробуй опубликовать → видишь ошибку валидации.
 2. Дозаполни → опубликуй → статус PUBLISHED, ученик видит в `/learn`.
 3. Открой `/courses/[id]/preview` → видишь курс как ученик, прогресс не пишется (`BlockView` не создаётся).
@@ -613,23 +703,26 @@ feat(course): add DRAFT/PUBLISHED/ARCHIVED workflow with validation and preview
 1. Перепиши `packages/db/prisma/seed.ts` — добавь демо-курс «Введение в бег для начинающих» от RunStart-учителя:
    - 3 модуля: «Зачем бегать», «Техника бега», «Первая тренировка».
    - В каждом модуле 2-3 урока.
-   - Разные типы блоков в уроках: HEADING, TEXT (с rich content), IMAGE (placeholder fileAsset), VIDEO_EMBED (ссылка на короткий ролик с YouTube), CALLOUT (совет), DIVIDER.
+   - Разные типы блоков в уроках: HEADING, TEXT (с rich content), IMAGE (placeholder fileAsset), VIDEO_EMBED (ссылка на короткий ролик с RuTube — потому что RuTube embed работает без CDN-ключей), CALLOUT (совет), DIVIDER.
    - Курс в статусе PUBLISHED, с обложкой, описанием, subject = 'pe' (физкультура).
    - Запиши студента на курс.
 2. Зависимости в корне: `pnpm add -Dw @playwright/test`. Установи браузеры: `npx playwright install --with-deps chromium`.
 3. `playwright.config.ts` в корне.
 4. `e2e/` директория в корне с тестами:
    - `e2e/auth.spec.ts` — signup создаёт школу, логин работает.
-   - `e2e/course-creation.spec.ts` — учитель создаёт курс, добавляет модуль, урок, разные типы блоков, публикует.
+   - `e2e/course-creation.spec.ts` — учитель создаёт курс, добавляет модуль, урок, разные типы блоков (НЕ загружает реальное видео — это slow и flaky в CI; вместо этого использует embed-блок с фейк-URL), публикует.
    - `e2e/student-journey.spec.ts` — ученик записан → видит курс → проходит уроки → прогресс растёт → курс на 100%.
+   - `e2e/video-upload.spec.ts` — отдельный «slow» тест, только локально (skip в CI): загружает реальный 5-секундный mp4, ждёт READY, проверяет что появился HLS-плеер.
 5. CI workflow (`.github/workflows/ci.yml`) — добавь job `e2e`:
    - services: postgres, redis, minio.
-   - Шаги: prisma migrate, prisma seed, build, `playwright test`.
+   - **Без worker** в e2e — видео тесты skip'аются в CI.
+   - Шаги: prisma migrate, prisma seed, build, `playwright test --grep-invert=@slow`.
    - Артефакты: screenshots/videos failed тестов.
 6. Обнови `README.md`:
    - Скриншоты редактора и просмотра ученика.
    - Раздел «Demo» — `docker compose up`, `/login` с `admin@school1.test` / `password`.
    - Раздел «Что умеет MVP» с маркированным списком фич Phase 0+1.
+   - Раздел «Видео в Парта5» — кратко объяснить, что есть две опции: self-hosted HLS из коробки и универсальный embed.
 7. Обнови `00-parta5.md`:
    - Phase 0 и Phase 1 — отмечено `[x]`.
    - Текущий статус → Phase 2 (тесты и задания).
@@ -644,7 +737,11 @@ pnpm --filter web build
 pnpm --filter web start &
 sleep 5
 
-# e2e локально
+# e2e локально (без slow)
+pnpm exec playwright test --grep-invert=@slow --reporter=list
+
+# опционально — полный e2e с видео (нужен worker)
+docker compose up -d worker
 pnpm exec playwright test --reporter=list
 
 kill %1
@@ -665,9 +762,9 @@ test(e2e): add Playwright e2e suite and rich demo course in seed
 После завершения шага 10:
 
 1. Обнови `00-parta5.md` в Obsidian: Phase 1 → `[x]`, статус → Phase 2.
-2. Создай тэг: `git tag -a v0.2.0-phase1 -m "Phase 1 complete: rich block editor, S3, Kinescope, progress tracking, publishing"`.
+2. Создай тэг: `git tag -a v0.2.0-phase1 -m "Phase 1 complete: rich block editor, S3, self-hosted HLS video, progress tracking, publishing"`.
 3. Push на GitHub и GitFlic.
-4. Сообщи Paul: **«Phase 1 закрыт. Платформа готова для пилотного курса RunStart. Дай знать, когда хочешь запустить Phase 2 (тесты и задания) — или сначала залить туда реальный курс школы бега.»**
+4. Сообщи Paul: **«Phase 1 закрыт. Платформа готова для пилотного курса RunStart с собственным видео-хостингом. Дай знать, когда хочешь запустить Phase 2 (тесты и задания) — или сначала залить туда реальный курс школы бега.»**
 
 ## Что Phase 1 НЕ покрывает (это нормально)
 
@@ -680,10 +777,14 @@ test(e2e): add Playwright e2e suite and rich demo course in seed
 - Комментарии и сообщения (Phase 4).
 - Родительский кабинет (Phase 4 или совмещённо с 6).
 - AI-фичи (Phase 5).
+- Адаптеры для Kinescope / Boomstream / Yandex Stream / PlatformCraft — опциональные модули в Phase 4-7.
+- DRM, watermarking, защита видео от скачивания (опциональные модули).
+- CDN для HLS-сегментов — для масштаба, в Phase 1 хватает прямой раздачи из MinIO.
+- Live-стриминг (вероятно никогда — это отдельная категория продукта).
 - ЕСИА (Phase 6).
 - Биллинг (Phase 7).
 
-Если Paul просит добавить что-то из этого списка прямо сейчас — НЕ соглашайся, скажи: «Это в Phase 2, давай закроем Phase 1 чисто и потом возьмёмся за следующее».
+Если Paul просит добавить что-то из этого списка прямо сейчас — НЕ соглашайся, скажи: «Это в следующей фазе, давай закроем Phase 1 чисто и потом возьмёмся за следующее».
 
 ---
 

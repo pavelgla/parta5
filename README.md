@@ -39,7 +39,7 @@
 - **БД:** PostgreSQL + Prisma, мульти-тенантность через `school_id` + Row Level Security
 - **Хранилище:** S3-совместимое (Yandex Object Storage / VK Cloud / MinIO для self-host)
 - **Очереди:** Redis + BullMQ
-- **Видео:** Kinescope (embed)
+- **Видео:** self-hosted (FFmpeg + HLS + HLS.js плеер) + универсальный embed (YouTube/RuTube/VK/Kinescope/Vimeo/Boomstream)
 - **Auth:** Auth.js + ЕСИА OIDC
 - **AI:** OpenAI API + Anthropic API + pgvector для RAG
 - **Уведомления:** SMTP + Telegram Bot API
@@ -53,7 +53,7 @@ LTI 1.3 Advantage · SCORM 1.2 (импорт) · xAPI / cmi5 · H5P · Moodle XM
 | Фаза | Срок    | Содержание                                                              |
 | ---- | ------- | ----------------------------------------------------------------------- |
 | 0    | 2 нед   | Скелет: Next.js + Prisma + Postgres, мульти-тенантность, аутентификация |
-| 1    | 4–6 нед | Курсы, модули, уроки, блочный редактор, видео через Kinescope           |
+| 1    | 4–6 нед | Курсы, модули, уроки, блочный редактор, self-hosted видео (HLS) + embed |
 | 2    | 4–6 нед | Банк вопросов, тесты, задания, ручная и авто-оценка                     |
 | 3    | 3–4 нед | Импорт `.mbz` из Moodle, импорт банков вопросов                         |
 | 4    | 4 нед   | Аналитика, родительский кабинет, уведомления                            |
