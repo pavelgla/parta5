@@ -7,16 +7,24 @@ interface Props {
   videoAssetId: string;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   onEnded?: () => void;
+  onProgress?: (info: { currentTime: number; duration: number; percent: number }) => void;
+  onCompleted?: () => void;
 }
 
-export function HlsPlayer({ videoAssetId, onTimeUpdate, onEnded }: Props) {
+export function HlsPlayer({ videoAssetId, onTimeUpdate, onEnded, onProgress, onCompleted }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<unknown>(null);
+  const lastProgressRef = useRef<number>(0);
+  const completedRef = useRef<boolean>(false);
 
   const { data } = trpc.video.getVideo.useQuery(
     { videoAssetId },
     { enabled: !!videoAssetId, refetchInterval: false },
   );
+
+  useEffect(() => {
+    completedRef.current = false;
+  }, [data?.hlsPlaylistUrl]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -66,6 +74,18 @@ export function HlsPlayer({ videoAssetId, onTimeUpdate, onEnded }: Props) {
       onTimeUpdate={(e) => {
         const v = e.currentTarget;
         onTimeUpdate?.(v.currentTime, v.duration);
+
+        const now = Date.now();
+        if (now - lastProgressRef.current >= 5000) {
+          lastProgressRef.current = now;
+          const percent = v.duration > 0 ? v.currentTime / v.duration : 0;
+          onProgress?.({ currentTime: v.currentTime, duration: v.duration, percent });
+        }
+
+        if (!completedRef.current && v.duration > 0 && v.currentTime / v.duration >= 0.9) {
+          completedRef.current = true;
+          onCompleted?.();
+        }
       }}
       onEnded={onEnded}
     />
