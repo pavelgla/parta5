@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Queue } from 'bullmq';
 import type { PrismaClient } from '@prisma/client';
 import type { StorageAdapter } from '@parta5/storage';
-import type { VideoAdapter, VideoStatus } from './index.js';
+import type { VideoAdapter, VideoStatus } from './index';
 
 export class SelfHostedHLSVideoAdapter implements VideoAdapter {
   constructor(

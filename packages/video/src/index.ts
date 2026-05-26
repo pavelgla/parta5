@@ -20,7 +20,7 @@ export interface VideoAdapter {
   delete(videoAssetId: string): Promise<void>;
 }
 
-export type { EmbedResult } from './embed/index.js';
-export { parseEmbedUrl } from './embed/index.js';
-export { EMBED_PROVIDERS } from './embed/providers.js';
-export { SelfHostedHLSVideoAdapter } from './self-hosted.js';
+export type { EmbedResult } from './embed/index';
+export { parseEmbedUrl } from './embed/index';
+export { EMBED_PROVIDERS } from './embed/providers';
+export { SelfHostedHLSVideoAdapter } from './self-hosted';

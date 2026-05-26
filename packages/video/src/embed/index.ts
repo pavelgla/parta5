@@ -1,4 +1,4 @@
-import { EMBED_PROVIDERS } from './providers.js';
+import { EMBED_PROVIDERS } from './providers';
 
 export interface EmbedResult {
   provider: string;
