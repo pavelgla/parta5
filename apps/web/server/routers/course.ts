@@ -46,6 +46,7 @@ export const courseRouter = router({
               orderBy: { order: 'asc' },
               include: { lessons: { orderBy: { order: 'asc' } } },
             },
+            coverFileAsset: { select: { id: true, key: true } },
           },
         }),
       );
