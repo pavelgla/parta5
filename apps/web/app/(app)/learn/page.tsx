@@ -9,7 +9,7 @@ export default async function LearnPage() {
 
   const caller = await serverCaller();
   const allCourses = await caller.course.list();
-  const courses = allCourses.filter((c) => c.status === 'PUBLISHED');
+  const courses = allCourses.filter((c) => c.status === 'PUBLISHED' || c.status === 'ARCHIVED');
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { trpc } from '@/lib/trpc/react';
+import { usePreviewMode } from '@/lib/preview-context';
 
 // Block types that auto-complete on view (no separate player event needed)
 const AUTO_COMPLETE_TYPES = new Set([
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function BlockTracker({ blockId, blockType, initialViewed = false, children }: Props) {
+  const isPreview = usePreviewMode();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const viewedThisSession = useRef<Set<string>>(new Set());
 
@@ -59,10 +61,12 @@ export function BlockTracker({ blockId, blockType, initialViewed = false, childr
         if (entry.isIntersecting && !viewedThisSession.current.has(blockId)) {
           timeoutId = setTimeout(() => {
             if (lastEntry?.isIntersecting) {
-              markViewedMutate.current({ blockId });
-              viewedThisSession.current.add(blockId);
-              if (AUTO_COMPLETE_TYPES.has(blockType)) {
-                markCompletedMutate.current({ blockId });
+              if (!isPreview) {
+                markViewedMutate.current({ blockId });
+                viewedThisSession.current.add(blockId);
+                if (AUTO_COMPLETE_TYPES.has(blockType)) {
+                  markCompletedMutate.current({ blockId });
+                }
               }
             }
           }, 2000);
@@ -84,7 +88,7 @@ export function BlockTracker({ blockId, blockType, initialViewed = false, childr
       }
       observer.disconnect();
     };
-  }, [blockId, blockType]);
+  }, [blockId, blockType, isPreview]);
 
   return <div ref={wrapperRef}>{children}</div>;
 }

@@ -107,6 +107,7 @@ model Course {
   shortDescription String?
   longDescription  Json?
   coverFileAssetId String?      @db.Uuid
+  publishedAt      DateTime?
 
   school           School       @relation(fields: [schoolId], references: [id])
   createdBy        User         @relation("CourseCreator", fields: [createdById], references: [id])

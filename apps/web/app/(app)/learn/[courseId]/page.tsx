@@ -16,6 +16,10 @@ export default async function LearnCoursePage({ params }: Props) {
   const caller = await serverCaller();
   const course = await caller.learn.getCourse({ courseId });
 
+  if (course.status !== 'PUBLISHED' && course.status !== 'ARCHIVED') {
+    redirect('/learn');
+  }
+
   const totalLessons = course.modules.reduce((sum, m) => sum + m.lessons.length, 0);
   const completedLessons = course.modules.reduce(
     (sum, m) => sum + m.lessons.filter((l) => l.completions.length > 0).length,

@@ -2,6 +2,7 @@
 
 import { useRef } from 'react';
 import { trpc } from '@/lib/trpc/react';
+import { usePreviewMode } from '@/lib/preview-context';
 import { HlsPlayer } from '@/components/hls-player';
 import { EmbedPlayer } from '@/components/embed-player';
 
@@ -23,11 +24,12 @@ interface Props {
 }
 
 export function VideoProgressTracker({ blockId, video }: Props) {
+  const isPreview = usePreviewMode();
   const markCompleted = trpc.progress.markBlockCompleted.useMutation();
   const completedRef = useRef(false);
 
   function handleCompleted(currentTime?: number) {
-    if (completedRef.current) return;
+    if (completedRef.current || isPreview) return;
     completedRef.current = true;
     markCompleted.mutate({
       blockId,

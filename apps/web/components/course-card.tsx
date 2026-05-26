@@ -17,15 +17,15 @@ interface CourseCardProps {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  PUBLISHED: 'Опубликован',
+  PUBLISHED: 'Опубликовано',
   ARCHIVED: 'Архив',
   DRAFT: 'Черновик',
 };
 
 const STATUS_CLASS: Record<string, string> = {
   PUBLISHED: 'bg-green-100 text-green-700',
-  ARCHIVED: 'bg-gray-100 text-gray-500',
-  DRAFT: 'bg-yellow-100 text-yellow-700',
+  ARCHIVED: 'bg-orange-100 text-orange-700',
+  DRAFT: 'bg-gray-100 text-gray-600',
 };
 
 export function CourseCard({ course, variant }: CourseCardProps) {
@@ -97,6 +97,12 @@ export function CourseCard({ course, variant }: CourseCardProps) {
                 className="text-sm font-medium text-gray-500 hover:underline"
               >
                 Настройки
+              </Link>
+              <Link
+                href={`/courses/${course.id}/preview` as Route}
+                className="text-sm font-medium text-gray-500 hover:underline"
+              >
+                Предпросмотр
               </Link>
             </>
           ) : (
