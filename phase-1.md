@@ -58,7 +58,7 @@
 - [x] Шаг 1 — расширить модель `ContentBlock` (12 типов блоков) + миграция
 - [x] Шаг 2 — S3-хранилище: MinIO в docker-compose + `@parta5/storage` пакет
 - [x] Шаг 3 — загрузка файлов: `FileAsset` модель + presigned URLs + UI-компонент
-- [ ] Шаг 4 — `apps/worker` + FFmpeg + HLS-транскодинг + `@parta5/video` с двумя адаптерами
+- [x] Шаг 4 — `apps/worker` + FFmpeg + HLS-транскодинг + `@parta5/video` с двумя адаптерами
 - [ ] Шаг 5 — блочный редактор Notion-style с TipTap и `dnd-kit`
 - [ ] Шаг 6 — расширенные метаданные курса: cover, предмет, класс, rich-text описание
 - [ ] Шаг 7 — трекинг прогресса на уровне блоков (`BlockView` + IntersectionObserver + HLS.js events)
