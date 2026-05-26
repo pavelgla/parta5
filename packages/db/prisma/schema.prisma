@@ -26,9 +26,18 @@ enum CourseStatus {
 }
 
 enum ContentBlockType {
+  HEADING
   TEXT
+  LIST
+  IMAGE
   VIDEO
+  VIDEO_EMBED
   FILE
+  CALLOUT
+  CODE
+  QUOTE
+  DIVIDER
+  EMBED_IFRAME
 }
 
 enum EnrollmentRole {

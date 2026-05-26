@@ -71,7 +71,7 @@ export function LessonEditor({ courseId, lesson }: Props) {
           createBlock.mutate({
             lessonId: lesson.id,
             type: 'TEXT',
-            data: { markdown: '' },
+            data: { html: '', text: '' },
           })
         }
         disabled={createBlock.isPending}
@@ -85,8 +85,8 @@ export function LessonEditor({ courseId, lesson }: Props) {
 
 function BlockItem({ block }: { block: ContentBlock }) {
   const router = useRouter();
-  const markdown = (block.data as { markdown?: string })?.markdown ?? '';
-  const [text, setText] = useState(markdown);
+  const initialText = (block.data as { text?: string })?.text ?? '';
+  const [text, setText] = useState(initialText);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'dirty'>('saved');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -102,7 +102,7 @@ function BlockItem({ block }: { block: ContentBlock }) {
   const save = useCallback(
     (value: string) => {
       setSaveStatus('saving');
-      updateBlock.mutate({ id: block.id, data: { markdown: value } });
+      updateBlock.mutate({ id: block.id, type: 'TEXT', data: { html: value, text: value } });
     },
     [block.id, updateBlock],
   );
