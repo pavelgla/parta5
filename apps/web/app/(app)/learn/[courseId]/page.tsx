@@ -2,6 +2,7 @@ import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { serverCaller } from '@/server/trpc/caller';
 import Link from 'next/link';
+import { LessonBlockProgress } from './_lesson-progress';
 
 interface Props {
   params: Promise<{ courseId: string }>;
@@ -76,6 +77,7 @@ export default async function LearnCoursePage({ params }: Props) {
                       >
                         {lesson.title}
                       </span>
+                      <LessonBlockProgress courseId={courseId} lessonId={lesson.id} />
                     </Link>
                   </li>
                 );

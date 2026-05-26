@@ -38,7 +38,12 @@ export const learnRouter = router({
         const lesson = await tx.lesson.findUniqueOrThrow({
           where: { id: input.lessonId },
           include: {
-            blocks: { orderBy: { order: 'asc' } },
+            blocks: {
+              orderBy: { order: 'asc' },
+              include: {
+                blockViews: { where: { userId }, select: { id: true, completedAt: true } },
+              },
+            },
             completions: { where: { userId }, select: { id: true } },
           },
         });
