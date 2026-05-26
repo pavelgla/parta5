@@ -16,6 +16,9 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
 COPY packages/ packages/
 COPY apps/web/ apps/web/
 
+# Prevent corepack from downloading the exact version pinned in packageManager
+# when the base layer already has pnpm installed via corepack prepare @latest.
+ENV COREPACK_ENABLE_STRICT=0
 RUN pnpm install --frozen-lockfile --network-concurrency 1
 
 # Prisma generate must run explicitly — postinstall is skipped with --frozen-lockfile in CI
