@@ -28,7 +28,7 @@ export const courseRouter = router({
           subject: true,
           gradeLevel: true,
           shortDescription: true,
-          coverFileAssetId: true,
+          coverFileAsset: { select: { key: true } },
         },
       }),
     );
@@ -78,7 +78,7 @@ export const courseRouter = router({
         subject: z.enum(SUBJECT_IDS).optional().nullable(),
         gradeLevel: z.number().int().min(1).max(12).optional().nullable(),
         shortDescription: z.string().max(200).optional().nullable(),
-        longDescription: z.unknown().optional().nullable(),
+        longDescription: z.record(z.string(), z.unknown()).optional().nullable(),
         coverFileAssetId: z.string().uuid().optional().nullable(),
         slug: z.string().min(1).max(100).optional(),
       }),
