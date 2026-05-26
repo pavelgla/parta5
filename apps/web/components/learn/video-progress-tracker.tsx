@@ -39,10 +39,7 @@ export function VideoProgressTracker({ blockId, video }: Props) {
     return (
       <HlsPlayer
         videoAssetId={video.videoAssetId}
-        onCompleted={() => handleCompleted()}
-        onProgress={({ currentTime, percent }) => {
-          if (percent >= 0.9) handleCompleted(currentTime);
-        }}
+        onCompleted={(currentTime) => handleCompleted(currentTime)}
       />
     );
   }

@@ -8,7 +8,8 @@ interface Props {
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   onEnded?: () => void;
   onProgress?: (info: { currentTime: number; duration: number; percent: number }) => void;
-  onCompleted?: () => void;
+  /** Called once when playback reaches 90%, with the current playback position in seconds. */
+  onCompleted?: (currentTime: number) => void;
 }
 
 export function HlsPlayer({ videoAssetId, onTimeUpdate, onEnded, onProgress, onCompleted }: Props) {
@@ -24,6 +25,7 @@ export function HlsPlayer({ videoAssetId, onTimeUpdate, onEnded, onProgress, onC
 
   useEffect(() => {
     completedRef.current = false;
+    lastProgressRef.current = 0;
   }, [data?.hlsPlaylistUrl]);
 
   useEffect(() => {
@@ -84,7 +86,7 @@ export function HlsPlayer({ videoAssetId, onTimeUpdate, onEnded, onProgress, onC
 
         if (!completedRef.current && v.duration > 0 && v.currentTime / v.duration >= 0.9) {
           completedRef.current = true;
-          onCompleted?.();
+          onCompleted?.(v.currentTime);
         }
       }}
       onEnded={onEnded}

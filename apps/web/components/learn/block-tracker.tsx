@@ -31,6 +31,12 @@ export function BlockTracker({ blockId, blockType, initialViewed = false, childr
   const markViewed = trpc.progress.markBlockViewed.useMutation();
   const markCompleted = trpc.progress.markBlockCompleted.useMutation();
 
+  // Stable refs to the latest mutate functions so useEffect deps stay clean
+  const markViewedMutate = useRef(markViewed.mutate);
+  markViewedMutate.current = markViewed.mutate;
+  const markCompletedMutate = useRef(markCompleted.mutate);
+  markCompletedMutate.current = markCompleted.mutate;
+
   // Pre-populate session dedup if already viewed in a previous session
   useEffect(() => {
     if (initialViewed) {
@@ -53,10 +59,10 @@ export function BlockTracker({ blockId, blockType, initialViewed = false, childr
         if (entry.isIntersecting && !viewedThisSession.current.has(blockId)) {
           timeoutId = setTimeout(() => {
             if (lastEntry?.isIntersecting) {
-              markViewed.mutate({ blockId });
+              markViewedMutate.current({ blockId });
               viewedThisSession.current.add(blockId);
               if (AUTO_COMPLETE_TYPES.has(blockType)) {
-                markCompleted.mutate({ blockId });
+                markCompletedMutate.current({ blockId });
               }
             }
           }, 2000);
@@ -78,7 +84,7 @@ export function BlockTracker({ blockId, blockType, initialViewed = false, childr
       }
       observer.disconnect();
     };
-  }, [blockId, blockType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [blockId, blockType]);
 
   return <div ref={wrapperRef}>{children}</div>;
 }

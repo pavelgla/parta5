@@ -27,6 +27,7 @@ export function EmbedPlayer({ provider, embedUrl, title, onCompleted }: Props) {
       {onCompleted && (
         <button
           onClick={onCompleted}
+          aria-label="Отметить видео как просмотренное"
           className="self-start rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 active:bg-green-800"
         >
           ✓ Я посмотрел
