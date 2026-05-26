@@ -56,7 +56,7 @@
 ## Чек-лист
 
 - [x] Шаг 1 — расширить модель `ContentBlock` (12 типов блоков) + миграция
-- [ ] Шаг 2 — S3-хранилище: MinIO в docker-compose + `@parta5/storage` пакет
+- [x] Шаг 2 — S3-хранилище: MinIO в docker-compose + `@parta5/storage` пакет
 - [ ] Шаг 3 — загрузка файлов: `FileAsset` модель + presigned URLs + UI-компонент
 - [ ] Шаг 4 — `apps/worker` + FFmpeg + HLS-транскодинг + `@parta5/video` с двумя адаптерами
 - [ ] Шаг 5 — блочный редактор Notion-style с TipTap и `dnd-kit`
@@ -311,9 +311,7 @@ feat(files): add FileAsset model and browser uploads via presigned URLs
          uploaderId: string;
        }): Promise<{ videoAssetId: string; uploadUrl: string; key: string; expiresAt: Date }>;
        confirmUploaded(videoAssetId: string): Promise<void>;
-       getStatus(
-         videoAssetId: string,
-       ): Promise<{
+       getStatus(videoAssetId: string): Promise<{
          status: VideoStatus;
          hlsPlaylistUrl?: string;
          posterUrl?: string;
