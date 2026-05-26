@@ -7,7 +7,6 @@ interface CourseCardProps {
   course: {
     id: string;
     title: string;
-    slug: string;
     status: string;
     subject?: string | null;
     gradeLevel?: number | null;
@@ -86,6 +85,7 @@ export function CourseCard({ course, variant }: CourseCardProps) {
         <div className="mt-auto pt-3 flex gap-3">
           {variant === 'teacher' ? (
             <>
+              {/* Dynamic routes require 'as Route' – Next.js Route type only validates literals */}
               <Link
                 href={`/courses/${course.id}/edit` as Route}
                 className="text-sm font-medium text-blue-600 hover:underline"
