@@ -4,6 +4,11 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 FROM base AS builder
 WORKDIR /app
 
+# AUTH_SECRET is required by Next.js at build time (Auth.js assertConfig).
+# Pass a non-empty placeholder here; the real value is injected at runtime.
+ARG AUTH_SECRET=build_placeholder_not_used_at_runtime
+ARG DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
+
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
 COPY packages/ packages/
 COPY apps/web/ apps/web/
@@ -13,6 +18,8 @@ RUN pnpm install --frozen-lockfile --network-concurrency 1
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV AUTH_SECRET=$AUTH_SECRET
+ENV DATABASE_URL=$DATABASE_URL
 RUN pnpm --filter web build
 
 FROM base AS runner
