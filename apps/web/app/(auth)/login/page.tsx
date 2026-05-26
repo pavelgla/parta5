@@ -1,20 +1,39 @@
 import { signIn } from '@/auth';
+import { AuthError } from 'next-auth';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   async function login(formData: FormData) {
     'use server';
-    await signIn('credentials', {
-      email: formData.get('email'),
-      password: formData.get('password'),
-      redirectTo: '/courses',
-    });
+    try {
+      await signIn('credentials', {
+        email: formData.get('email'),
+        password: formData.get('password'),
+        redirectTo: '/courses',
+      });
+    } catch (error) {
+      if (error instanceof AuthError) {
+        redirect('/login?error=invalid_credentials');
+      }
+      throw error; // re-throw NEXT_REDIRECT and other non-auth errors
+    }
   }
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <h1 className="mb-6 text-2xl font-bold text-gray-900">Вход</h1>
+        {error === 'invalid_credentials' && (
+          <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+            Неверный email или пароль
+          </p>
+        )}
         <form action={login} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">

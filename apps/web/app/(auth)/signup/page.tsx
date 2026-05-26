@@ -1,4 +1,6 @@
 import { signIn } from '@/auth';
+import { AuthError } from 'next-auth';
+import { redirect } from 'next/navigation';
 import { prisma } from '@parta5/db';
 import bcrypt from 'bcryptjs';
 import Link from 'next/link';
@@ -28,7 +30,14 @@ export default function SignupPage() {
       },
     });
 
-    await signIn('credentials', { email, password, redirectTo: '/courses' });
+    try {
+      await signIn('credentials', { email, password, redirectTo: '/courses' });
+    } catch (error) {
+      if (error instanceof AuthError) {
+        redirect('/signup?error=signin_failed');
+      }
+      throw error;
+    }
   }
 
   return (
