@@ -45,6 +45,12 @@ enum EnrollmentRole {
   STUDENT
 }
 
+enum FileAssetStatus {
+  PENDING
+  UPLOADED
+  DELETED
+}
+
 // ──────────────────────────────────────────────────────────────
 // Core models
 // ──────────────────────────────────────────────────────────────
@@ -72,6 +78,7 @@ model User {
   courses     Course[]          @relation("CourseCreator")
   enrollments Enrollment[]
   completions LessonCompletion[]
+  fileAssets  FileAsset[]
 }
 
 model Course {
@@ -166,4 +173,21 @@ model LessonCompletion {
   @@unique([lessonId, userId])
   @@index([userId])
   @@index([schoolId])
+}
+
+model FileAsset {
+  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId     String          @db.Uuid
+  uploaderId   String          @db.Uuid
+  key          String          @unique
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  status       FileAssetStatus @default(PENDING)
+  createdAt    DateTime        @default(now())
+
+  uploader User @relation(fields: [uploaderId], references: [id])
+
+  @@index([schoolId])
+  @@index([uploaderId])
 }
