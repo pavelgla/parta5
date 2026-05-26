@@ -8,3 +8,11 @@ dist
 coverage
 .DS_Store
 *.tsbuildinfo
+
+# Generated docs (создаются из .md через pandoc, не нужно коммитить)
+*.docx
+*.pdf
+
+# LibreOffice/Office lock files
+.~lock.*#
+~$*
