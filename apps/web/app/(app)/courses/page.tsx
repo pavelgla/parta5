@@ -2,6 +2,7 @@ import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { serverCaller } from '@/server/trpc/caller';
+import { CourseCard } from '@/components/course-card';
 
 export default async function CoursesPage() {
   const session = await auth();
@@ -29,37 +30,7 @@ export default async function CoursesPage() {
       ) : (
         <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {courses.map((course) => (
-            <li
-              key={course.id}
-              className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <h2 className="font-semibold text-gray-900 line-clamp-2">{course.title}</h2>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                    course.status === 'PUBLISHED'
-                      ? 'bg-green-100 text-green-700'
-                      : course.status === 'ARCHIVED'
-                        ? 'bg-gray-100 text-gray-500'
-                        : 'bg-yellow-100 text-yellow-700'
-                  }`}
-                >
-                  {course.status === 'PUBLISHED'
-                    ? 'Опубликован'
-                    : course.status === 'ARCHIVED'
-                      ? 'Архив'
-                      : 'Черновик'}
-                </span>
-              </div>
-              <div className="mt-4 flex gap-3">
-                <Link
-                  href={`/courses/${course.id}/edit`}
-                  className="text-sm font-medium text-blue-600 hover:underline"
-                >
-                  Редактировать
-                </Link>
-              </div>
-            </li>
+            <CourseCard key={course.id} course={course} variant="teacher" />
           ))}
         </ul>
       )}
