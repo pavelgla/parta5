@@ -60,7 +60,7 @@
 - [x] Шаг 3 — загрузка файлов: `FileAsset` модель + presigned URLs + UI-компонент
 - [x] Шаг 4 — `apps/worker` + FFmpeg + HLS-транскодинг + `@parta5/video` с двумя адаптерами
 - [x] Шаг 5 — блочный редактор Notion-style с TipTap и `dnd-kit`
-- [ ] Шаг 6 — расширенные метаданные курса: cover, предмет, класс, rich-text описание
+- [x] Шаг 6 — расширенные метаданные курса: cover, предмет, класс, rich-text описание
 - [ ] Шаг 7 — трекинг прогресса на уровне блоков (`BlockView` + IntersectionObserver + HLS.js events)
 - [ ] Шаг 8 — таблица `LearningEvent` (xAPI-like) + API логирования
 - [ ] Шаг 9 — publishing flow: DRAFT → PUBLISHED → ARCHIVED + превью + валидация
