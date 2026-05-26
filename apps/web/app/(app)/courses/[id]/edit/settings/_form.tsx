@@ -190,7 +190,7 @@ export function CourseSettingsForm({ course }: Props) {
         <div className="rounded-lg border border-gray-300 px-3 py-2 min-h-[120px] focus-within:ring-2 focus-within:ring-blue-500">
           <TipTapEditor
             content={longDescHtml}
-            onChange={(html, _text) => setLongDescHtml(html)}
+            onChange={(html) => setLongDescHtml(html)}
             placeholder="Подробное описание курса, цели, требования..."
           />
         </div>
