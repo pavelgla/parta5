@@ -26,6 +26,16 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter web build
 
+# Prisma native engine (.so.node) is not picked up by Next.js file tracing in pnpm monorepos.
+# Copy it explicitly into the standalone output so the runner can find it at runtime.
+RUN find /app/node_modules/.pnpm -name "*.node" -path "*/.prisma/client/*" | \
+    while read src; do \
+      rel="${src#/app/}"; \
+      dest="/app/apps/web/.next/standalone/${rel%/*}"; \
+      mkdir -p "$dest"; \
+      cp "$src" "$dest/"; \
+    done
+
 FROM base AS runner
 WORKDIR /app
 
