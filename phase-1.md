@@ -43,11 +43,11 @@
 
 ## Секреты через Bitwarden
 
-| Item в Bitwarden | Где используется | Как получить |
-|---|---|---|
-| `parta5/s3/minio-local-root-user` | Локальный MinIO | Сгенерируй (например `parta5admin`), положи в Bitwarden |
-| `parta5/s3/minio-local-root-password` | Локальный MinIO | `openssl rand -hex 24`, положи в Bitwarden |
-| `parta5/s3/bucket-name` | Имя бакета | По умолчанию `parta5-uploads` |
+| Item в Bitwarden                      | Где используется | Как получить                                            |
+| ------------------------------------- | ---------------- | ------------------------------------------------------- |
+| `parta5/s3/minio-local-root-user`     | Локальный MinIO  | Сгенерируй (например `parta5admin`), положи в Bitwarden |
+| `parta5/s3/minio-local-root-password` | Локальный MinIO  | `openssl rand -hex 24`, положи в Bitwarden              |
+| `parta5/s3/bucket-name`               | Имя бакета       | По умолчанию `parta5-uploads`                           |
 
 Никаких внешних API-токенов для видео в этой фазе не нужно. Embed-блоки работают без API — просто iframe по URL.
 
@@ -55,7 +55,7 @@
 
 ## Чек-лист
 
-- [ ] Шаг 1 — расширить модель `ContentBlock` (12 типов блоков) + миграция
+- [x] Шаг 1 — расширить модель `ContentBlock` (12 типов блоков) + миграция
 - [ ] Шаг 2 — S3-хранилище: MinIO в docker-compose + `@parta5/storage` пакет
 - [ ] Шаг 3 — загрузка файлов: `FileAsset` модель + presigned URLs + UI-компонент
 - [ ] Шаг 4 — `apps/worker` + FFmpeg + HLS-транскодинг + `@parta5/video` с двумя адаптерами
@@ -131,8 +131,8 @@ feat(db): expand ContentBlock with 12 block types and zod schemas
      image: minio/minio:latest
      command: server /data --console-address ":9001"
      ports:
-       - "9000:9000"  # API
-       - "9001:9001"  # Web console
+       - '9000:9000' # API
+       - '9001:9001' # Web console
      environment:
        MINIO_ROOT_USER: ${MINIO_ROOT_USER}
        MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
@@ -169,12 +169,16 @@ feat(db): expand ContentBlock with 12 block types and zod schemas
    - `src/index.ts` — экспорт `StorageAdapter` интерфейса:
      ```ts
      export interface StorageAdapter {
-       presignUpload(key: string, contentType: string, sizeBytes: number): Promise<{ url: string; fields?: Record<string,string>; expiresAt: Date }>;
+       presignUpload(
+         key: string,
+         contentType: string,
+         sizeBytes: number,
+       ): Promise<{ url: string; fields?: Record<string, string>; expiresAt: Date }>;
        publicUrl(key: string): string;
        delete(key: string): Promise<void>;
        headObject(key: string): Promise<{ size: number; contentType: string } | null>;
-       getObjectStream(key: string): Promise<NodeJS.ReadableStream>;   // для воркера, чтобы стримить файл в FFmpeg
-       putObjectFromPath(key: string, localPath: string, contentType: string): Promise<void>;  // для воркера, выгрузка HLS-сегментов
+       getObjectStream(key: string): Promise<NodeJS.ReadableStream>; // для воркера, чтобы стримить файл в FFmpeg
+       putObjectFromPath(key: string, localPath: string, contentType: string): Promise<void>; // для воркера, выгрузка HLS-сегментов
      }
      ```
    - `src/s3.ts` — реализация `S3StorageAdapter` использующая `@aws-sdk/client-s3` (работает и с MinIO, и с Yandex Object Storage, и с AWS S3 — endpoint конфигурируется).
@@ -241,6 +245,7 @@ feat(storage): add S3-compatible adapter with MinIO docker service
 **Проверка:**
 
 Ручная:
+
 1. Открой `/courses/[id]/edit`.
 2. Добавь блок IMAGE → загрузи PNG → должен появиться в редакторе.
 3. Сделай рефреш — картинка осталась.
@@ -297,11 +302,23 @@ feat(files): add FileAsset model and browser uploads via presigned URLs
    - `package.json` name `@parta5/video`, dep `zod`, peer `@parta5/storage`.
    - `src/index.ts` — экспорт `VideoAdapter` интерфейса:
      ```ts
-     export type VideoStatus = 'pending'|'uploading'|'transcoding'|'ready'|'failed';
+     export type VideoStatus = 'pending' | 'uploading' | 'transcoding' | 'ready' | 'failed';
      export interface VideoAdapter {
-       requestUpload(input: {schoolId: string; originalName: string; sizeBytes: number; uploaderId: string}): Promise<{videoAssetId: string; uploadUrl: string; key: string; expiresAt: Date}>;
+       requestUpload(input: {
+         schoolId: string;
+         originalName: string;
+         sizeBytes: number;
+         uploaderId: string;
+       }): Promise<{ videoAssetId: string; uploadUrl: string; key: string; expiresAt: Date }>;
        confirmUploaded(videoAssetId: string): Promise<void>;
-       getStatus(videoAssetId: string): Promise<{status: VideoStatus; hlsPlaylistUrl?: string; posterUrl?: string; durationSeconds?: number}>;
+       getStatus(
+         videoAssetId: string,
+       ): Promise<{
+         status: VideoStatus;
+         hlsPlaylistUrl?: string;
+         posterUrl?: string;
+         durationSeconds?: number;
+       }>;
        delete(videoAssetId: string): Promise<void>;
      }
      ```
@@ -447,6 +464,7 @@ feat(video): self-hosted HLS transcoding worker and universal embed adapter
 **Проверка:**
 
 Ручная:
+
 1. Открой `/courses/[id]/edit/[lessonId]`.
 2. Добавь блоки разных типов через «/» меню.
 3. Перетащи блок drag-and-drop.
@@ -512,6 +530,7 @@ feat(editor): notion-style block editor with TipTap and dnd-kit
 **Проверка:**
 
 Ручная:
+
 1. На `/courses/[id]/edit/settings` укажи предмет «Биология», класс 7, загрузи обложку.
 2. На `/courses` карточка курса показывает обложку и метаданные.
 3. На `/learn` ученик видит то же.
@@ -571,6 +590,7 @@ feat(course): add cover image, subject, grade level and rich description
 **Проверка:**
 
 Ручная:
+
 1. Открой урок как ученик.
 2. Поскролль до конца — все TEXT/IMAGE блоки помечены viewed (в Prisma Studio проверь BlockView).
 3. Посмотри self-hosted видео целиком — `watchedSeconds` растёт, в конце completedAt установлен.
@@ -616,7 +636,15 @@ feat(progress): add per-block view tracking with intersection observer and video
    Миграция. **Никаких FK** — это append-only журнал, удалять объекты можно без cascade.
 2. Сервис `apps/web/server/services/learning-events.ts`:
    ```ts
-   export async function logEvent(input: { schoolId; actorId; verb; objectType; objectId; result?; context? }): Promise<void> {
+   export async function logEvent(input: {
+     schoolId;
+     actorId;
+     verb;
+     objectType;
+     objectId;
+     result?;
+     context?;
+   }): Promise<void> {
      await prisma.learningEvent.create({ data: input });
    }
    ```
@@ -632,6 +660,7 @@ feat(progress): add per-block view tracking with intersection observer and video
 **Проверка:**
 
 Ручная:
+
 1. Ученик проходит урок.
 2. На `/admin/events` появились записи `viewed`, `completed` за последние минуты.
 
@@ -676,6 +705,7 @@ feat(analytics): add xAPI-like LearningEvent append-only log
 **Проверка:**
 
 Ручная:
+
 1. Создай курс без обложки → попробуй опубликовать → видишь ошибку валидации.
 2. Дозаполни → опубликуй → статус PUBLISHED, ученик видит в `/learn`.
 3. Открой `/courses/[id]/preview` → видишь курс как ученик, прогресс не пишется (`BlockView` не создаётся).
