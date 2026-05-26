@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import { Prisma } from '@parta5/db';
 import { router, protectedProcedure } from '../trpc/init';
 import { withTenant } from '@parta5/db';
+import { SUBJECT_IDS } from '@/lib/subjects';
 
 function slugify(title: string): string {
   return title
@@ -17,7 +19,17 @@ export const courseRouter = router({
     return withTenant(schoolId, (tx) =>
       tx.course.findMany({
         orderBy: { createdAt: 'desc' },
-        select: { id: true, title: true, slug: true, status: true, createdAt: true },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          status: true,
+          createdAt: true,
+          subject: true,
+          gradeLevel: true,
+          shortDescription: true,
+          coverFileAssetId: true,
+        },
       }),
     );
   }),
@@ -63,12 +75,20 @@ export const courseRouter = router({
         title: z.string().min(1).max(200).optional(),
         description: z.string().optional(),
         status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),
+        subject: z.enum(SUBJECT_IDS).optional().nullable(),
+        gradeLevel: z.number().int().min(1).max(12).optional().nullable(),
+        shortDescription: z.string().max(200).optional().nullable(),
+        longDescription: z.unknown().optional().nullable(),
+        coverFileAssetId: z.string().uuid().optional().nullable(),
+        slug: z.string().min(1).max(100).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
       const schoolId = ctx.session.user.schoolId!;
-      return withTenant(schoolId, (tx) => tx.course.update({ where: { id }, data }));
+      return withTenant(schoolId, (tx) =>
+        tx.course.update({ where: { id }, data: data as Prisma.CourseUncheckedUpdateInput }),
+      );
     }),
 
   delete: protectedProcedure
