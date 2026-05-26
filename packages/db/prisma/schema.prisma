@@ -51,6 +51,14 @@ enum FileAssetStatus {
   DELETED
 }
 
+enum VideoAssetStatus {
+  PENDING
+  UPLOADING
+  TRANSCODING
+  READY
+  FAILED
+}
+
 // ──────────────────────────────────────────────────────────────
 // Core models
 // ──────────────────────────────────────────────────────────────
@@ -74,11 +82,12 @@ model User {
   schoolId       String?  @db.Uuid
   createdAt      DateTime @default(now())
 
-  school      School?           @relation(fields: [schoolId], references: [id])
-  courses     Course[]          @relation("CourseCreator")
-  enrollments Enrollment[]
-  completions LessonCompletion[]
-  fileAssets  FileAsset[]
+  school       School?           @relation(fields: [schoolId], references: [id])
+  courses      Course[]          @relation("CourseCreator")
+  enrollments  Enrollment[]
+  completions  LessonCompletion[]
+  fileAssets   FileAsset[]
+  videoAssets  VideoAsset[]      @relation("VideoAssetUploader")
 }
 
 model Course {
@@ -190,4 +199,24 @@ model FileAsset {
 
   @@index([schoolId])
   @@index([uploaderId])
+}
+
+model VideoAsset {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId        String           @db.Uuid
+  uploaderId      String           @db.Uuid
+  sourceKey       String           @unique
+  hlsMasterKey    String?
+  posterKey       String?
+  durationSeconds Int?
+  width           Int?
+  height          Int?
+  status          VideoAssetStatus @default(PENDING)
+  errorMessage    String?
+  createdAt       DateTime         @default(now())
+
+  uploader User @relation("VideoAssetUploader", fields: [uploaderId], references: [id])
+
+  @@index([schoolId])
+  @@index([status])
 }

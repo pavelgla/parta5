@@ -1,0 +1,29 @@
+{
+  "name": "@parta5/video",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./embed": "./src/embed/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.0.0"
+  },
+  "peerDependencies": {
+    "@parta5/db": "workspace:*",
+    "@parta5/storage": "workspace:*",
+    "bullmq": "^5.0.0"
+  },
+  "devDependencies": {
+    "@prisma/client": "^6.0.0",
+    "bullmq": "^5.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}
