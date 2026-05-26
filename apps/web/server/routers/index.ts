@@ -4,6 +4,7 @@ import { moduleRouter } from './module';
 import { lessonRouter } from './lesson';
 import { blockRouter } from './block';
 import { enrollmentRouter } from './enrollment';
+import { learnRouter } from './learn';
 
 export const appRouter = router({
   course: courseRouter,
@@ -11,6 +12,7 @@ export const appRouter = router({
   lesson: lessonRouter,
   block: blockRouter,
   enrollment: enrollmentRouter,
+  learn: learnRouter,
 });
 
 export type AppRouter = typeof appRouter;
