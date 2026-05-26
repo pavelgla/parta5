@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc/init';
 import { withTenant } from '@parta5/db';
+import { logEvent } from '../services/learning-events';
 
 export const progressRouter = router({
   markBlockViewed: protectedProcedure
@@ -15,10 +16,12 @@ export const progressRouter = router({
           where: { id: blockId },
           select: {
             lessonId: true,
+            type: true,
             lesson: { select: { module: { select: { courseId: true } } } },
           },
         });
         const { lessonId } = block;
+        const blockType = block.type;
         const courseId = block.lesson.module.courseId;
 
         const enrollment = await tx.enrollment.findFirst({
@@ -30,6 +33,15 @@ export const progressRouter = router({
           where: { blockId_userId: { blockId, userId } },
           create: { blockId, lessonId, userId, schoolId, viewedAt: new Date() },
           update: {},
+        });
+
+        void logEvent({
+          schoolId,
+          actorId: userId,
+          verb: 'viewed',
+          objectType: 'block',
+          objectId: blockId,
+          result: { lessonId, blockType },
         });
 
         return { ok: true };
@@ -48,10 +60,12 @@ export const progressRouter = router({
           where: { id: blockId },
           select: {
             lessonId: true,
+            type: true,
             lesson: { select: { module: { select: { courseId: true } } } },
           },
         });
         const { lessonId } = block;
+        const blockType = block.type;
         const courseId = block.lesson.module.courseId;
 
         const enrollment = await tx.enrollment.findFirst({
@@ -81,11 +95,28 @@ export const progressRouter = router({
         });
         const totalCount = await tx.contentBlock.count({ where: { lessonId } });
 
+        void logEvent({
+          schoolId,
+          actorId: userId,
+          verb: 'completed',
+          objectType: 'block',
+          objectId: blockId,
+          result: { lessonId, blockType, watchedSeconds: input.watchedSeconds ?? null },
+        });
+
         if (completedCount >= totalCount) {
           await tx.lessonCompletion.upsert({
             where: { lessonId_userId: { lessonId, userId } },
             create: { lessonId, userId, schoolId },
             update: {},
+          });
+          void logEvent({
+            schoolId,
+            actorId: userId,
+            verb: 'completed',
+            objectType: 'lesson',
+            objectId: lessonId,
+            result: { courseId },
           });
         }
 

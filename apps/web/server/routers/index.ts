@@ -9,6 +9,7 @@ import { fileRouter } from './file';
 import { videoRouter } from './video';
 import { embedRouter } from './embed';
 import { progressRouter } from './progress';
+import { eventsRouter } from './events';
 
 export const appRouter = router({
   course: courseRouter,
@@ -21,6 +22,7 @@ export const appRouter = router({
   video: videoRouter,
   embed: embedRouter,
   progress: progressRouter,
+  events: eventsRouter,
 });
 
 export type AppRouter = typeof appRouter;
