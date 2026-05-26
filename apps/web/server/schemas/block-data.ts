@@ -27,7 +27,7 @@ const ListData = z.object({
 const ImageData = z.object({
   type: z.literal('IMAGE'),
   data: z.object({
-    fileAssetId: z.string().uuid(),
+    fileAssetId: z.string().uuid().optional(),
     caption: z.string().optional(),
     alt: z.string().optional(),
   }),
@@ -36,16 +36,16 @@ const ImageData = z.object({
 const VideoData = z.object({
   type: z.literal('VIDEO'),
   data: z.object({
-    videoAssetId: z.string().uuid(),
+    videoAssetId: z.string().uuid().optional(),
   }),
 });
 
 const VideoEmbedData = z.object({
   type: z.literal('VIDEO_EMBED'),
   data: z.object({
-    provider: z.string(),
-    url: z.string().url(),
-    embedUrl: z.string().url(),
+    provider: z.string().optional(),
+    url: z.string().optional(),
+    embedUrl: z.string().optional(),
     providerVideoId: z.string().optional(),
   }),
 });
@@ -53,7 +53,7 @@ const VideoEmbedData = z.object({
 const FileData = z.object({
   type: z.literal('FILE'),
   data: z.object({
-    fileAssetId: z.string().uuid(),
+    fileAssetId: z.string().uuid().optional(),
     displayName: z.string(),
   }),
 });
@@ -90,8 +90,8 @@ const DividerData = z.object({
 const EmbedIframeData = z.object({
   type: z.literal('EMBED_IFRAME'),
   data: z.object({
-    url: z.string().url(),
-    height: z.number().int().positive(),
+    url: z.string().optional(),
+    height: z.number().int().positive().optional(),
   }),
 });
 

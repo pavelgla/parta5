@@ -29,7 +29,7 @@ export default async function EditLessonPage({ params }: Props) {
         <h1 className="text-xl font-bold text-gray-900 truncate">{lesson.title}</h1>
       </div>
 
-      <LessonEditor courseId={courseId} lesson={lesson} />
+      <LessonEditor courseId={courseId} lesson={lesson} userRole={session.user.role} />
     </div>
   );
 }

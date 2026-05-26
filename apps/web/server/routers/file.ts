@@ -78,6 +78,32 @@ export const fileRouter = router({
       );
     }),
 
+  getAsset: protectedProcedure
+    .input(z.object({ fileAssetId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const schoolId = ctx.session.user.schoolId!;
+
+      const asset = await withTenant(schoolId, (tx) =>
+        tx.fileAsset.findFirst({
+          where: { id: input.fileAssetId, schoolId },
+          select: {
+            id: true,
+            key: true,
+            originalName: true,
+            mimeType: true,
+            sizeBytes: true,
+            status: true,
+          },
+        }),
+      );
+
+      if (!asset) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'File asset not found' });
+      }
+
+      return asset;
+    }),
+
   delete: protectedProcedure
     .input(z.object({ fileAssetId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
