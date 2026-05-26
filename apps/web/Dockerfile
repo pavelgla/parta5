@@ -9,17 +9,21 @@ WORKDIR /app
 ARG AUTH_SECRET=build_placeholder_not_used_at_runtime
 ARG DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
 
+ENV AUTH_SECRET=$AUTH_SECRET
+ENV DATABASE_URL=$DATABASE_URL
+
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
 COPY packages/ packages/
 COPY apps/web/ apps/web/
 
 RUN pnpm install --frozen-lockfile --network-concurrency 1
 
+# Prisma generate must run explicitly — postinstall is skipped with --frozen-lockfile in CI
+RUN pnpm --filter @parta5/db exec prisma generate
+
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV AUTH_SECRET=$AUTH_SECRET
-ENV DATABASE_URL=$DATABASE_URL
 RUN pnpm --filter web build
 
 FROM base AS runner
