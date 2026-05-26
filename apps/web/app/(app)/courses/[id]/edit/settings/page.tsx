@@ -18,7 +18,9 @@ export default async function CourseSettingsPage({ params }: PageProps) {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="text-xl font-bold text-gray-900 mb-6">Настройки курса</h1>
-      <CourseSettingsForm course={course} />
+      <CourseSettingsForm
+        course={{ ...course, longDescription: course.longDescription as { html: string } | null }}
+      />
     </div>
   );
 }

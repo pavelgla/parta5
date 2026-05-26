@@ -12,8 +12,7 @@ interface CoverAsset {
   key: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type JsonValue = any;
+type LongDescJson = { html: string };
 
 interface Course {
   id: string;
@@ -22,7 +21,7 @@ interface Course {
   subject?: string | null;
   gradeLevel?: number | null;
   shortDescription?: string | null;
-  longDescription?: JsonValue;
+  longDescription?: LongDescJson | null;
   coverFileAsset?: CoverAsset | null;
 }
 
@@ -30,10 +29,9 @@ interface Props {
   course: Course;
 }
 
-function extractHtml(longDescription: Record<string, unknown> | null | undefined): string {
+function extractHtml(longDescription: LongDescJson | null | undefined): string {
   if (!longDescription) return '';
-  if (typeof longDescription.html === 'string') return longDescription.html;
-  return '';
+  return longDescription.html;
 }
 
 export function CourseSettingsForm({ course }: Props) {
@@ -59,6 +57,17 @@ export function CourseSettingsForm({ course }: Props) {
     e.preventDefault();
     setStatus('saving');
     setErrorMessage(null);
+
+    if (!title.trim()) {
+      setErrorMessage('Название курса не может быть пустым');
+      setStatus('error');
+      return;
+    }
+    if (!slug.trim()) {
+      setErrorMessage('Slug не может быть пустым');
+      setStatus('error');
+      return;
+    }
 
     try {
       await updateMutation.mutateAsync({
@@ -181,7 +190,7 @@ export function CourseSettingsForm({ course }: Props) {
         <div className="rounded-lg border border-gray-300 px-3 py-2 min-h-[120px] focus-within:ring-2 focus-within:ring-blue-500">
           <TipTapEditor
             content={longDescHtml}
-            onChange={(html) => setLongDescHtml(html)}
+            onChange={(html, _text) => setLongDescHtml(html)}
             placeholder="Подробное описание курса, цели, требования..."
           />
         </div>
