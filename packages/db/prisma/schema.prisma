@@ -86,6 +86,7 @@ model User {
   courses      Course[]          @relation("CourseCreator")
   enrollments  Enrollment[]
   completions  LessonCompletion[]
+  blockViews   BlockView[]
   fileAssets   FileAsset[]
   videoAssets  VideoAsset[]      @relation("VideoAssetUploader")
 }
@@ -143,6 +144,7 @@ model Lesson {
   module      Module             @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   blocks      ContentBlock[]
   completions LessonCompletion[]
+  blockViews  BlockView[]
 
   @@index([moduleId])
   @@index([schoolId])
@@ -157,7 +159,8 @@ model ContentBlock {
   order     Int
   createdAt DateTime         @default(now())
 
-  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  lesson     Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  blockViews BlockView[]
 
   @@index([lessonId])
   @@index([schoolId])
@@ -189,6 +192,26 @@ model LessonCompletion {
 
   @@unique([lessonId, userId])
   @@index([userId])
+  @@index([schoolId])
+}
+
+model BlockView {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  blockId        String    @db.Uuid
+  lessonId       String    @db.Uuid
+  userId         String    @db.Uuid
+  schoolId       String    @db.Uuid
+  viewedAt       DateTime  @default(now())
+  completedAt    DateTime?
+  watchedSeconds Int?
+
+  block  ContentBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  lesson Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([blockId, userId])
+  @@index([userId])
+  @@index([lessonId])
   @@index([schoolId])
 }
 
