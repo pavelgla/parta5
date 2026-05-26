@@ -31,7 +31,10 @@
       "@prisma/engines",
       "esbuild",
       "prisma",
-      "sharp"
+      "sharp",
+      "@ffmpeg-installer/linux-x64",
+      "@ffprobe-installer/linux-x64",
+      "msgpackr-extract"
     ]
   }
 }
