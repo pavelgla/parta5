@@ -17,7 +17,8 @@ START=${1:-1}
 END=${2:-999}
 
 # Извлечение тела промпта из PROMPTS.md по номеру (1-indexed)
-# Парсит первый ~~~...~~~ блок в секции ## ПРОМПТ N:
+# Парсит первый ```...``` блок в секции ## ПРОМПТ N:
+# (prettier нормализует ~~~ в ``` — извлекаем по ```)
 extract_prompt() {
   local num=$1
   python3 - "$num" <<'PYEOF'
@@ -36,9 +37,9 @@ if len(parts) <= num:
 
 section = parts[num]
 
-m = re.search(r'~~~\n(.*?)~~~', section, re.DOTALL)
+m = re.search(r'```\n(.*?)```', section, re.DOTALL)
 if not m:
-    print(f"~~~ блок не найден в промпте {num}", file=sys.stderr)
+    print(f"``` блок не найден в промпте {num}", file=sys.stderr)
     sys.exit(1)
 
 print(m.group(1).rstrip())
