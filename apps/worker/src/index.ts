@@ -23,7 +23,7 @@ const worker = new Worker(
       await handleTranscodeVideo(job);
     }
   },
-  { connection },
+  { connection, concurrency: Number(process.env.WORKER_CONCURRENCY ?? 2) },
 );
 
 worker.on('completed', (job) => log.info({ jobId: job.id }, 'Job completed'));
