@@ -55,6 +55,9 @@ jobs:
       - name: Typecheck
         run: pnpm --filter web exec tsc --noEmit
 
+      - name: Unit tests
+        run: pnpm test
+
       - name: Build
         run: pnpm --filter web build
 
