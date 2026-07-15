@@ -1,7 +1,7 @@
 import NextAuth, { type DefaultSession } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
-import { prisma } from '@parta5/db';
+import { prisma, UserRole } from '@parta5/db';
 import { authConfig } from '@/auth.config';
 
 declare module 'next-auth' {
@@ -9,7 +9,7 @@ declare module 'next-auth' {
     user: {
       id: string;
       schoolId: string | null;
-      role: string;
+      role: UserRole;
     } & DefaultSession['user'];
   }
 }
@@ -52,14 +52,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id;
         token.schoolId = (user as { schoolId?: string | null }).schoolId ?? null;
-        token.role = (user as { role?: string }).role ?? 'STUDENT';
+        token.role = (user as { role?: UserRole }).role ?? UserRole.STUDENT;
       }
       return token;
     },
     async session({ session, token }) {
       session.user.id = token.id as string;
       session.user.schoolId = token.schoolId as string | null;
-      session.user.role = token.role as string;
+      session.user.role = token.role as UserRole;
       return session;
     },
   },

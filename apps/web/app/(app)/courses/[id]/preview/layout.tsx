@@ -1,12 +1,15 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
+import { UserRole } from '@parta5/db';
 import { PreviewProvider } from '@/lib/preview-context';
+
+const TEACHER_ROLES: UserRole[] = [UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN];
 
 export default async function PreviewLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session) redirect('/login');
 
-  if (!['TEACHER', 'SCHOOL_ADMIN', 'SUPER_ADMIN'].includes(session.user.role ?? '')) {
+  if (!TEACHER_ROLES.includes(session.user.role)) {
     redirect('/learn');
   }
 
