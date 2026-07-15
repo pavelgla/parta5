@@ -43,8 +43,6 @@ pnpm --filter web dev
 | Учитель (RunStart) | teacher@runstart.test | password |
 | Ученик (RunStart)  | student@runstart.test | password |
 
-> **Публикация демо-курса.** Демо-курс «Введение в бег для начинающих» создан в статусе DRAFT (без обложки). Чтобы опубликовать: войди как `teacher@runstart.test` → откройте курс → Settings → загрузи обложку → нажми «Опубликовать».
-
 > **Существующие установки.** Приложение (web/worker) подключается к БД под least-privilege ролью `parta5_app`, не под владельцем `parta5` (см. ADR-002 — FORCE RLS работает только пока роль без BYPASSRLS). Новые `docker compose up` окружения создают её автоматически через `docker/postgres-init/01-app-role.sh`. Для БД, поднятых до этого изменения, создай роль вручную одной командой psql:
 >
 > ```bash

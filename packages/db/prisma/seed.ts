@@ -101,7 +101,6 @@ async function main() {
   });
 
   // ── Demo course ────────────────────────────────────────────────────────────
-  // Status: DRAFT — публикация требует загрузки обложки вручную
   const demoCourse = await prisma.course.upsert({
     where: { schoolId_slug: { schoolId: runstart.id, slug: 'intro-to-running' } },
     update: {},
@@ -109,7 +108,8 @@ async function main() {
       schoolId: runstart.id,
       slug: 'intro-to-running',
       title: 'Введение в бег для начинающих',
-      status: CourseStatus.DRAFT,
+      status: CourseStatus.PUBLISHED,
+      publishedAt: new Date(),
       subject: 'pe',
       gradeLevel: 7,
       shortDescription: 'Базовый курс для тех, кто хочет начать бегать с нуля',
