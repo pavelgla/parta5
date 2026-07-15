@@ -1,35 +1,37 @@
 ---
 type: project
 status: active
-last_active: 2026-05-26
-phase: 1
+last_active: 2026-07-15
+phase: A (hardening, суперплан 2026-07)
 phase_status: not_started
 stack: [Next.js 15, tRPC v11, Prisma, PostgreSQL 16, Auth.js v5, Tailwind v4, pnpm, Turborepo]
-goal: Open-source LMS для школ 5–11 классов и УДО РФ (MPL 2.0) — альтернатива Moodle
+goal: Open-source LMS для школ 5–11 классов, УДО и ДПО РФ (MPL 2.0) — альтернатива Moodle
 domain: parta5.ru
 repo: https://github.com/pavelgla/parta5
 ---
 
 ## TL;DR
 
-**Парта5** — open-core LMS для школ 5–11 классов и УДО. Бесплатное ядро под MPL 2.0, платные SaaS-облако и модули сверху. Self-host философия «как Moodle, но современно»: один `docker compose up` и работает.
+**Парта5** — open-core LMS для школ 5–11 классов, УДО и ДПО. Бесплатное ядро под MPL 2.0, платные SaaS-облако и модули сверху. Self-host философия «как Moodle, но современно»: один `docker compose up` и работает.
 
-**Phase 0 закрыт** (2026-05-26, tag `v0.1.0-phase0`). Дальше — Phase 1.
+**Phase 0 и Phase 1 закрыты** (2026-05-26, tags `v0.1.0-phase0` / `v0.2.0-phase1`).
+
+**2026-07-15 — ревью и новый суперплан.** Senior+product ревью: `docs/reviews/2026-07-senior-product-review.md`. Роадмап пересобран под пилот с реальным контентом **Профспецресурса** (Moodle 5.0.6 на sel1, проект `~/Obsidian/1-projects/psr`: 106 курсов, 62 940 multichoice-вопросов, 773 PDF): `docs/SUPERPLAN.md`. Этапы: **A** hardening (RBAC! RLS-дыры) → **B** квиз-MVP (multichoice/truefalse/shortanswer) → **C** импортер .mbz → **D** пользователи + пилот PSR. Исполнение — PROMPTS.md конвейером Sonnet.
 
 ## Стек
 
-| Слой | Технология |
-|------|-----------|
-| App | Next.js 15 App Router + React Server Components |
-| API | tRPC v11 (внутренний) |
-| БД | PostgreSQL 16 + Prisma ORM |
-| Аутентификация | Auth.js v5 (Credentials + JWT, Edge-safe split: `auth.config.ts` / `auth.ts`) |
-| Мульти-тенантность | PostgreSQL RLS + `withTenant()` хелпер |
-| Стили | Tailwind v4 |
-| Монорепо | pnpm workspaces + Turborepo |
-| Видео (Phase 1) | Self-hosted FFmpeg → HLS → HLS.js + универсальный embed |
-| Хранилище (Phase 1) | S3-совместимое (MinIO для self-host) |
-| Очереди (Phase 1) | Redis + BullMQ (`apps/worker`) |
+| Слой                | Технология                                                                    |
+| ------------------- | ----------------------------------------------------------------------------- |
+| App                 | Next.js 15 App Router + React Server Components                               |
+| API                 | tRPC v11 (внутренний)                                                         |
+| БД                  | PostgreSQL 16 + Prisma ORM                                                    |
+| Аутентификация      | Auth.js v5 (Credentials + JWT, Edge-safe split: `auth.config.ts` / `auth.ts`) |
+| Мульти-тенантность  | PostgreSQL RLS + `withTenant()` хелпер                                        |
+| Стили               | Tailwind v4                                                                   |
+| Монорепо            | pnpm workspaces + Turborepo                                                   |
+| Видео (Phase 1)     | Self-hosted FFmpeg → HLS → HLS.js + универсальный embed                       |
+| Хранилище (Phase 1) | S3-совместимое (MinIO для self-host)                                          |
+| Очереди (Phase 1)   | Redis + BullMQ (`apps/worker`)                                                |
 
 ## Структура репо
 
@@ -41,13 +43,15 @@ packages/
   db/              — Prisma schema, миграции, withTenant()
   storage/         — S3 adapter (Phase 1)
   video/           — VideoAdapter (self-hosted HLS + embed) (Phase 1)
-  quiz/            — Question schemas + auto-grade engine (Phase 2)
+  quiz/            — ПЛАН (Этап B): question schemas + auto-grade engine
+  importer/        — ПЛАН (Этап C): парсер .mbz / Moodle XML
 docs/
-  architecture/    — ADR-001 (стек), ADR-002 (RLS multi-tenancy)
-                     далее: ADR-003 (видео-стратегия, Phase 1), 004-006 (Phase 2)
+  architecture/    — ADR-001 (стек), ADR-002 (RLS), ADR-003 (видео)
+  reviews/         — 2026-07 senior+product ревью
+  SUPERPLAN.md     — актуальный роадмап (этапы A–H)
 ```
 
-## Phase 0 — что сделано (14 коммитов, tag v0.1.0-phase0)
+## Phase 0 ✅ — закрыт (14 коммитов, tag `v0.1.0-phase0`)
 
 - Монорепо: pnpm + Turborepo + TypeScript strict + MPL 2.0
 - Next.js 15 + Tailwind v4 + базовая навигация
@@ -61,27 +65,32 @@ docs/
 - GitHub Actions CI: lint + typecheck + build
 - ADR-001 (стек), ADR-002 (RLS multi-tenancy)
 
-## Phase 1 — что предстоит (4–6 недель, см. `phase-1.md`)
+## Phase 1 ✅ — закрыт (tag `v0.2.0-phase1`, 2026-05-26)
 
-1. Расширить ContentBlock до 12 типов (TEXT/HEADING/LIST/IMAGE/VIDEO/VIDEO_EMBED/FILE/CALLOUT/CODE/QUOTE/DIVIDER/EMBED_IFRAME)
-2. S3-хранилище: MinIO в docker-compose + `packages/storage`
-3. Файловые загрузки через presigned URLs + модель `FileAsset`
-4. `apps/worker` + FFmpeg + HLS-транскодинг + `packages/video` (SelfHostedHLS + ExternalEmbed)
-5. Блочный редактор Notion-style: TipTap + dnd-kit
-6. Метаданные курса: обложка, предмет, класс, rich-описание
-7. Прогресс по блокам (`BlockView` + IntersectionObserver + HLS.js events)
-8. `LearningEvent` xAPI-like append-only журнал
-9. Publishing flow: DRAFT → PUBLISHED → ARCHIVED + превью
-10. Демо-курс RunStart + Playwright e2e
+- 12 типов блоков (HEADING, TEXT, LIST, IMAGE, VIDEO, VIDEO_EMBED, FILE, CALLOUT, CODE, QUOTE, DIVIDER, EMBED_IFRAME)
+- S3-хранилище: MinIO + `packages/storage`, загрузки через presigned URLs
+- `apps/worker` + FFmpeg + HLS-транскодинг + `packages/video`
+- Блочный редактор Notion-style: TipTap + dnd-kit
+- Прогресс по блокам через IntersectionObserver + LearningEvent xAPI-like журнал
+- Publishing flow: DRAFT → PUBLISHED → ARCHIVED + превью
+- Демо-курс «Введение в бег» (RunStart) + Playwright e2e
 
-## Дальнейшие фазы
+## Текущий этап — A: Hardening (см. docs/SUPERPLAN.md)
 
-- **Phase 2** (4–6 нед) — тесты и задания, см. `phase-2.md`. Уже написана.
-- Phase 3 — импорт `.mbz` из Moodle.
-- Phase 4 — аналитика, родители, комментарии.
-- Phase 5 — LTI 1.3, SCORM, H5P, AI-фичи.
-- Phase 6 — ЕСИА, ФГИС «Моя школа», Дневник.ру.
-- Phase 7 — биллинг, white-label, реестр ОВП.
+> Роадмап 2026-07 заменил прежнюю нумерацию фаз 2–7 на этапы A–H.
+> Цель этапов A–D: пилот с импортированным контентом Профспецресурса (~6–10 нед).
+
+- [ ] **Этап A** — hardening: RBAC (teacherProcedure/adminProcedure + ownership), RLS на BlockView/FileAsset/VideoAsset/LearningEvent, непривилегированная DB-роль, фикс compose (web без S3/Redis env), enrollment-политика, воркер retry/timeout, vitest в CI + негативные authz-тесты → `v0.2.1`
+- [ ] **Этап B** — квиз-MVP: ADR-004, `@parta5/quiz` (multichoice/truefalse/shortanswer — покрывает 99,997% вопросов PSR), Quiz/QuizAttempt, UI прохождения, мини-журнал + CSV → `v0.3.0-phase2`
+- [ ] **Этап C** — импортер: `packages/importer`, .mbz-парсер, маппинг quiz/resource/page/url, CLI dry-run, тест на реальных .mbz из PSR → `v0.4.0-phase3`
+- [ ] **Этап D** — админ-UI пользователей, CSV-ростер, деплой на sel1, импорт 106 курсов PSR, демо заказчику → `v0.5.0-pilot`
+
+## Дальнейшие этапы
+
+- **E** — Assignment/рубрики, комментарии, уведомления, полный Gradebook.
+- **F** — аналитика, SCORM, H5P, LTI 1.3, AI-фичи.
+- **G** — ЕСИА, ФГИС «Моя школа», Дневник.ру, родительский кабинет.
+- **H** — биллинг, white-label, GitFlic, реестр ОВП.
 
 ## Ключевые архитектурные решения
 
@@ -95,8 +104,8 @@ docs/
 ## Открытые вопросы
 
 - GitFlic-зеркало репозитория ещё не создано (обязательно для реестра ОВП).
-- Реальный `.mbz` из Moodle для тестирования импортёра (нужно в Phase 3).
-- Школа-пилот в Карелии — поиск через RunStart-связи.
+- ~~Реальный `.mbz` для тестирования импортёра~~ — **решено**: Профспецресурс (sel1, `/opt/psr`, полный доступ), экспорт через Moodle CLI/moosh. Согласовать пилот с Александром Белым.
+- Школа-пилот в Карелии — поиск через RunStart-связи (параллельно с ДПО-пилотом PSR).
 - Регистрация ИП и подача товарного знака «Парта5» в Роспатент.
 
 ## Полезные команды
