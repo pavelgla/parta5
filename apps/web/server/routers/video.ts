@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { router, tenantProcedure, teacherProcedure } from '../trpc/init';
-import { prisma } from '@parta5/db';
+import { withTenant } from '@parta5/db';
 import { createStorageFromEnv } from '@parta5/storage';
 import { randomUUID } from 'node:crypto';
 
@@ -23,9 +23,11 @@ function getQueue(): Queue {
 }
 
 async function requireAsset(schoolId: string, videoAssetId: string) {
-  const asset = await prisma.videoAsset.findFirst({
-    where: { id: videoAssetId, schoolId },
-  });
+  const asset = await withTenant(schoolId, (tx) =>
+    tx.videoAsset.findFirst({
+      where: { id: videoAssetId, schoolId },
+    }),
+  );
   if (!asset) throw new TRPCError({ code: 'NOT_FOUND', message: 'Video asset not found' });
   return asset;
 }
@@ -62,9 +64,11 @@ export const videoRouter = router({
         input.sizeBytes,
       );
 
-      await prisma.videoAsset.create({
-        data: { id: videoAssetId, schoolId, uploaderId, sourceKey: key, status: 'PENDING' },
-      });
+      await withTenant(schoolId, (tx) =>
+        tx.videoAsset.create({
+          data: { id: videoAssetId, schoolId, uploaderId, sourceKey: key, status: 'PENDING' },
+        }),
+      );
 
       return { videoAssetId, uploadUrl, expiresAt };
     }),
@@ -75,10 +79,12 @@ export const videoRouter = router({
       const schoolId = ctx.schoolId;
       await requireAsset(schoolId, input.videoAssetId);
 
-      await prisma.videoAsset.update({
-        where: { id: input.videoAssetId },
-        data: { status: 'UPLOADING' },
-      });
+      await withTenant(schoolId, (tx) =>
+        tx.videoAsset.update({
+          where: { id: input.videoAssetId },
+          data: { status: 'UPLOADING' },
+        }),
+      );
 
       await getQueue().add('transcode-video', { videoAssetId: input.videoAssetId });
 
@@ -115,7 +121,9 @@ export const videoRouter = router({
       );
 
       await Promise.allSettled(keys.map((k) => storage.delete(k)));
-      await prisma.videoAsset.delete({ where: { id: input.videoAssetId } });
+      await withTenant(schoolId, (tx) =>
+        tx.videoAsset.delete({ where: { id: input.videoAssetId } }),
+      );
 
       return { deleted: true };
     }),
@@ -124,11 +132,13 @@ export const videoRouter = router({
     const schoolId = ctx.schoolId;
     const uploaderId = ctx.userId;
 
-    const assets = await prisma.videoAsset.findMany({
-      where: { schoolId, uploaderId },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
+    const assets = await withTenant(schoolId, (tx) =>
+      tx.videoAsset.findMany({
+        where: { schoolId, uploaderId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+    );
 
     const storage = createStorageFromEnv();
     return assets.map((a) => ({
