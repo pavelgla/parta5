@@ -45,6 +45,14 @@ pnpm --filter web dev
 
 > **Публикация демо-курса.** Демо-курс «Введение в бег для начинающих» создан в статусе DRAFT (без обложки). Чтобы опубликовать: войди как `teacher@runstart.test` → откройте курс → Settings → загрузи обложку → нажми «Опубликовать».
 
+> **Существующие установки.** Приложение (web/worker) подключается к БД под least-privilege ролью `parta5_app`, не под владельцем `parta5` (см. ADR-002 — FORCE RLS работает только пока роль без BYPASSRLS). Новые `docker compose up` окружения создают её автоматически через `docker/postgres-init/01-app-role.sh`. Для БД, поднятых до этого изменения, создай роль вручную одной командой psql:
+>
+> ```bash
+> psql "$DATABASE_URL" -c "CREATE ROLE parta5_app LOGIN PASSWORD '<POSTGRES_APP_PASSWORD>' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS; GRANT CONNECT ON DATABASE parta5 TO parta5_app; GRANT USAGE ON SCHEMA public TO parta5_app;"
+> ```
+>
+> После этого выполни `pnpm --filter @parta5/db exec prisma migrate deploy`, чтобы применить гранты на таблицы, и обнови `DATABASE_URL` в окружении web/worker на пользователя `parta5_app`.
+
 ## Что умеет MVP (Phase 0 + Phase 1)
 
 - **Мульти-тенантность с первого коммита** — каждая запись принадлежит школе; PostgreSQL Row Level Security.

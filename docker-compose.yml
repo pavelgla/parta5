@@ -6,7 +6,7 @@ services:
     ports:
       - '3000:3000'
     environment:
-      - DATABASE_URL=postgresql://parta5:${POSTGRES_PASSWORD}@db:5432/parta5
+      - DATABASE_URL=postgresql://parta5_app:${POSTGRES_APP_PASSWORD}@db:5432/parta5
       - AUTH_SECRET=${AUTH_SECRET}
       - AUTH_TRUST_HOST=true
       - NODE_ENV=production
@@ -21,8 +21,10 @@ services:
       POSTGRES_USER: parta5
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: parta5
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U parta5']
       interval: 5s
@@ -86,7 +88,7 @@ services:
       context: .
       dockerfile: apps/worker/Dockerfile
     environment:
-      DATABASE_URL: postgresql://parta5:${POSTGRES_PASSWORD}@db:5432/parta5
+      DATABASE_URL: postgresql://parta5_app:${POSTGRES_APP_PASSWORD}@db:5432/parta5
       REDIS_URL: redis://redis:6379
       S3_ENDPOINT: http://minio:9000
       S3_REGION: ${S3_REGION:-us-east-1}
