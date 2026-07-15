@@ -1,14 +1,14 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc/init';
+import { router, tenantProcedure } from '../trpc/init';
 import { withTenant } from '@parta5/db';
 import { logEvent } from '../services/learning-events';
 
 export const progressRouter = router({
-  markBlockViewed: protectedProcedure
+  markBlockViewed: tenantProcedure
     .input(z.object({ blockId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
-      const userId = ctx.session.user.id;
+      const schoolId = ctx.schoolId;
+      const userId = ctx.userId;
       const { blockId } = input;
 
       return withTenant(schoolId, async (tx) => {
@@ -48,11 +48,11 @@ export const progressRouter = router({
       });
     }),
 
-  markBlockCompleted: protectedProcedure
+  markBlockCompleted: tenantProcedure
     .input(z.object({ blockId: z.string().uuid(), watchedSeconds: z.number().optional() }))
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
-      const userId = ctx.session.user.id;
+      const schoolId = ctx.schoolId;
+      const userId = ctx.userId;
       const { blockId } = input;
 
       return withTenant(schoolId, async (tx) => {
@@ -141,11 +141,11 @@ export const progressRouter = router({
       });
     }),
 
-  courseProgress: protectedProcedure
+  courseProgress: tenantProcedure
     .input(z.object({ courseId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
-      const userId = ctx.session.user.id;
+      const schoolId = ctx.schoolId;
+      const userId = ctx.userId;
       const { courseId } = input;
 
       return withTenant(schoolId, async (tx) => {

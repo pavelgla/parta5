@@ -1,13 +1,13 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc/init';
+import { router, tenantProcedure } from '../trpc/init';
 import { withTenant } from '@parta5/db';
 
 export const learnRouter = router({
-  getCourse: protectedProcedure
+  getCourse: tenantProcedure
     .input(z.object({ courseId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
-      const userId = ctx.session.user.id;
+      const schoolId = ctx.schoolId;
+      const userId = ctx.userId;
       return withTenant(schoolId, async (tx) => {
         const course = await tx.course.findUniqueOrThrow({
           where: { id: input.courseId },
@@ -29,11 +29,11 @@ export const learnRouter = router({
       });
     }),
 
-  getLesson: protectedProcedure
+  getLesson: tenantProcedure
     .input(z.object({ lessonId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
-      const userId = ctx.session.user.id;
+      const schoolId = ctx.schoolId;
+      const userId = ctx.userId;
       return withTenant(schoolId, async (tx) => {
         const lesson = await tx.lesson.findUniqueOrThrow({
           where: { id: input.lessonId },
@@ -54,11 +54,11 @@ export const learnRouter = router({
       });
     }),
 
-  completeLesson: protectedProcedure
+  completeLesson: tenantProcedure
     .input(z.object({ lessonId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
-      const userId = ctx.session.user.id;
+      const schoolId = ctx.schoolId;
+      const userId = ctx.userId;
       return withTenant(schoolId, (tx) =>
         tx.lessonCompletion.upsert({
           where: { lessonId_userId: { lessonId: input.lessonId, userId } },

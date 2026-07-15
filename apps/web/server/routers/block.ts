@@ -1,10 +1,40 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc/init';
+import { TRPCError } from '@trpc/server';
+import { router, teacherProcedure } from '../trpc/init';
 import { withTenant, type Prisma } from '@parta5/db';
 import { BlockDataSchema } from '../schemas/block-data';
+import { assertCanEditCourse } from '../services/authz';
+
+async function requireLessonCourseId(
+  tx: Prisma.TransactionClient,
+  lessonId: string,
+): Promise<string> {
+  const lesson = await tx.lesson.findUnique({
+    where: { id: lessonId },
+    select: { module: { select: { courseId: true } } },
+  });
+  if (!lesson) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Lesson not found' });
+  }
+  return lesson.module.courseId;
+}
+
+async function requireBlockCourseId(
+  tx: Prisma.TransactionClient,
+  blockId: string,
+): Promise<string> {
+  const block = await tx.contentBlock.findUnique({
+    where: { id: blockId },
+    select: { lesson: { select: { module: { select: { courseId: true } } } } },
+  });
+  if (!block) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Block not found' });
+  }
+  return block.lesson.module.courseId;
+}
 
 export const blockRouter = router({
-  create: protectedProcedure
+  create: teacherProcedure
     .input(
       z.object({
         lessonId: z.string().uuid(),
@@ -26,9 +56,11 @@ export const blockRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
+      const schoolId = ctx.schoolId;
       const { lessonId, type, data } = input;
       return withTenant(schoolId, async (tx) => {
+        const courseId = await requireLessonCourseId(tx, lessonId);
+        await assertCanEditCourse(tx, courseId, ctx.userId, ctx.session.user.role);
         const count = await tx.contentBlock.count({ where: { lessonId } });
         const block = await tx.contentBlock.create({
           data: {
@@ -48,7 +80,7 @@ export const blockRouter = router({
       });
     }),
 
-  update: protectedProcedure
+  update: teacherProcedure
     .input(
       z.object({ id: z.string().uuid() }).and(
         z.discriminatedUnion('type', [
@@ -120,22 +152,26 @@ export const blockRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const { id, data } = input;
-      const schoolId = ctx.session.user.schoolId!;
-      await withTenant(schoolId, (tx) =>
-        tx.contentBlock.update({
+      const schoolId = ctx.schoolId;
+      await withTenant(schoolId, async (tx) => {
+        const courseId = await requireBlockCourseId(tx, id);
+        await assertCanEditCourse(tx, courseId, ctx.userId, ctx.session.user.role);
+        return tx.contentBlock.update({
           where: { id },
           data: { data: data as Prisma.InputJsonValue },
-        }),
-      );
+        });
+      });
       return { id };
     }),
 
-  reorder: protectedProcedure
+  reorder: teacherProcedure
     .input(z.object({ lessonId: z.string().uuid(), blockIds: z.array(z.string().uuid()) }))
     .mutation(async ({ ctx, input }) => {
       const { lessonId, blockIds } = input;
-      const schoolId = ctx.session.user.schoolId!;
+      const schoolId = ctx.schoolId;
       return withTenant(schoolId, async (tx) => {
+        const courseId = await requireLessonCourseId(tx, lessonId);
+        await assertCanEditCourse(tx, courseId, ctx.userId, ctx.session.user.role);
         await Promise.all(
           blockIds.map((id, index) =>
             tx.contentBlock.update({ where: { id, lessonId }, data: { order: index } }),
@@ -144,11 +180,15 @@ export const blockRouter = router({
       });
     }),
 
-  delete: protectedProcedure
+  delete: teacherProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
-      await withTenant(schoolId, (tx) => tx.contentBlock.delete({ where: { id: input.id } }));
+      const schoolId = ctx.schoolId;
+      await withTenant(schoolId, async (tx) => {
+        const courseId = await requireBlockCourseId(tx, input.id);
+        await assertCanEditCourse(tx, courseId, ctx.userId, ctx.session.user.role);
+        return tx.contentBlock.delete({ where: { id: input.id } });
+      });
       return { id: input.id };
     }),
 });

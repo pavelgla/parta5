@@ -1,14 +1,14 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc/init';
+import { router, tenantProcedure } from '../trpc/init';
 import { withTenant } from '@parta5/db';
 import { logEvent } from '../services/learning-events';
 
 export const enrollmentRouter = router({
-  enroll: protectedProcedure
+  enroll: tenantProcedure
     .input(z.object({ courseId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
-      const userId = ctx.session.user.id;
+      const schoolId = ctx.schoolId;
+      const userId = ctx.userId;
       const result = await withTenant(schoolId, (tx) =>
         tx.enrollment.upsert({
           where: { courseId_userId: { userId, courseId: input.courseId } },
@@ -26,9 +26,9 @@ export const enrollmentRouter = router({
       return result;
     }),
 
-  myEnrollments: protectedProcedure.query(async ({ ctx }) => {
-    const schoolId = ctx.session.user.schoolId!;
-    const userId = ctx.session.user.id;
+  myEnrollments: tenantProcedure.query(async ({ ctx }) => {
+    const schoolId = ctx.schoolId;
+    const userId = ctx.userId;
     return withTenant(schoolId, (tx) =>
       tx.enrollment.findMany({
         where: { userId },

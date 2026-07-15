@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { Prisma } from '@parta5/db';
-import { router, protectedProcedure } from '../trpc/init';
+import { router, tenantProcedure, teacherProcedure } from '../trpc/init';
 import { withTenant } from '@parta5/db';
 import { SUBJECT_IDS } from '@/lib/subjects';
 import { logEvent } from '../services/learning-events';
+import { assertCanEditCourse } from '../services/authz';
 
 type ValidationIssue = { path: string; message: string };
 
@@ -88,8 +89,8 @@ function slugify(title: string): string {
 }
 
 export const courseRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
-    const schoolId = ctx.session.user.schoolId!;
+  list: tenantProcedure.query(async ({ ctx }) => {
+    const schoolId = ctx.schoolId;
     return withTenant(schoolId, (tx) =>
       tx.course.findMany({
         orderBy: { createdAt: 'desc' },
@@ -108,29 +109,27 @@ export const courseRouter = router({
     );
   }),
 
-  get: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
-    .query(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
-      return withTenant(schoolId, (tx) =>
-        tx.course.findUniqueOrThrow({
-          where: { id: input.id },
-          include: {
-            modules: {
-              orderBy: { order: 'asc' },
-              include: { lessons: { orderBy: { order: 'asc' } } },
-            },
-            coverFileAsset: { select: { id: true, key: true } },
+  get: tenantProcedure.input(z.object({ id: z.string().uuid() })).query(async ({ ctx, input }) => {
+    const schoolId = ctx.schoolId;
+    return withTenant(schoolId, (tx) =>
+      tx.course.findUniqueOrThrow({
+        where: { id: input.id },
+        include: {
+          modules: {
+            orderBy: { order: 'asc' },
+            include: { lessons: { orderBy: { order: 'asc' } } },
           },
-        }),
-      );
-    }),
+          coverFileAsset: { select: { id: true, key: true } },
+        },
+      }),
+    );
+  }),
 
-  create: protectedProcedure
+  create: teacherProcedure
     .input(z.object({ title: z.string().min(1).max(200), description: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
-      const createdById = ctx.session.user.id;
+      const schoolId = ctx.schoolId;
+      const createdById = ctx.userId;
       const baseSlug = slugify(input.title) || 'course';
       return withTenant(schoolId, async (tx) => {
         const count = await tx.course.count({
@@ -143,7 +142,7 @@ export const courseRouter = router({
       });
     }),
 
-  update: protectedProcedure
+  update: teacherProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -160,23 +159,27 @@ export const courseRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
-      const schoolId = ctx.session.user.schoolId!;
-      return withTenant(schoolId, (tx) =>
-        tx.course.update({ where: { id }, data: data as Prisma.CourseUncheckedUpdateInput }),
-      );
+      const schoolId = ctx.schoolId;
+      return withTenant(schoolId, async (tx) => {
+        await assertCanEditCourse(tx, id, ctx.userId, ctx.session.user.role);
+        return tx.course.update({ where: { id }, data: data as Prisma.CourseUncheckedUpdateInput });
+      });
     }),
 
-  delete: protectedProcedure
+  delete: teacherProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
-      return withTenant(schoolId, (tx) => tx.course.delete({ where: { id: input.id } }));
+      const schoolId = ctx.schoolId;
+      return withTenant(schoolId, async (tx) => {
+        await assertCanEditCourse(tx, input.id, ctx.userId, ctx.session.user.role);
+        return tx.course.delete({ where: { id: input.id } });
+      });
     }),
 
-  validate: protectedProcedure
+  validate: tenantProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
+      const schoolId = ctx.schoolId;
       return withTenant(schoolId, async (tx) => {
         const course = await tx.course.findUniqueOrThrow({
           where: { id: input.id },
@@ -186,11 +189,12 @@ export const courseRouter = router({
       });
     }),
 
-  publish: protectedProcedure
+  publish: teacherProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
+      const schoolId = ctx.schoolId;
       const updated = await withTenant(schoolId, async (tx) => {
+        await assertCanEditCourse(tx, input.id, ctx.userId, ctx.session.user.role);
         const course = await tx.course.findUniqueOrThrow({
           where: { id: input.id },
           include: courseWithModulesInclude,
@@ -209,7 +213,7 @@ export const courseRouter = router({
       });
       void logEvent({
         schoolId,
-        actorId: ctx.session.user.id,
+        actorId: ctx.userId,
         verb: 'published',
         objectType: 'course',
         objectId: input.id,
@@ -217,19 +221,20 @@ export const courseRouter = router({
       return updated;
     }),
 
-  unpublish: protectedProcedure
+  unpublish: teacherProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
-      const updated = await withTenant(schoolId, (tx) =>
-        tx.course.update({
+      const schoolId = ctx.schoolId;
+      const updated = await withTenant(schoolId, async (tx) => {
+        await assertCanEditCourse(tx, input.id, ctx.userId, ctx.session.user.role);
+        return tx.course.update({
           where: { id: input.id },
           data: { status: 'DRAFT' },
-        }),
-      );
+        });
+      });
       void logEvent({
         schoolId,
-        actorId: ctx.session.user.id,
+        actorId: ctx.userId,
         verb: 'unpublished',
         objectType: 'course',
         objectId: input.id,
@@ -237,19 +242,20 @@ export const courseRouter = router({
       return updated;
     }),
 
-  archive: protectedProcedure
+  archive: teacherProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
-      const updated = await withTenant(schoolId, (tx) =>
-        tx.course.update({
+      const schoolId = ctx.schoolId;
+      const updated = await withTenant(schoolId, async (tx) => {
+        await assertCanEditCourse(tx, input.id, ctx.userId, ctx.session.user.role);
+        return tx.course.update({
           where: { id: input.id },
           data: { status: 'ARCHIVED' },
-        }),
-      );
+        });
+      });
       void logEvent({
         schoolId,
-        actorId: ctx.session.user.id,
+        actorId: ctx.userId,
         verb: 'archived',
         objectType: 'course',
         objectId: input.id,

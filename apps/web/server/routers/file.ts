@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { router, protectedProcedure } from '../trpc/init';
+import { router, tenantProcedure, teacherProcedure } from '../trpc/init';
 import { withTenant } from '@parta5/db';
 import { createStorageFromEnv, buildKey } from '@parta5/storage';
 import { RequestUploadInput, validateUpload, mimeToAssetType } from '../schemas/file-upload';
@@ -11,9 +11,9 @@ function getStorage() {
 }
 
 export const fileRouter = router({
-  requestUpload: protectedProcedure.input(RequestUploadInput).mutation(async ({ ctx, input }) => {
-    const schoolId = ctx.session.user.schoolId!;
-    const uploaderId = ctx.session.user.id!;
+  requestUpload: teacherProcedure.input(RequestUploadInput).mutation(async ({ ctx, input }) => {
+    const schoolId = ctx.schoolId;
+    const uploaderId = ctx.userId;
 
     validateUpload(input);
 
@@ -45,10 +45,10 @@ export const fileRouter = router({
     return { fileAssetId: fileAsset.id, uploadUrl, key, expiresAt };
   }),
 
-  confirmUpload: protectedProcedure
+  confirmUpload: teacherProcedure
     .input(z.object({ fileAssetId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
+      const schoolId = ctx.schoolId;
 
       const asset = await withTenant(schoolId, (tx) =>
         tx.fileAsset.findFirst({
@@ -78,10 +78,10 @@ export const fileRouter = router({
       );
     }),
 
-  getAsset: protectedProcedure
+  getAsset: tenantProcedure
     .input(z.object({ fileAssetId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
+      const schoolId = ctx.schoolId;
 
       const asset = await withTenant(schoolId, (tx) =>
         tx.fileAsset.findFirst({
@@ -104,10 +104,10 @@ export const fileRouter = router({
       return asset;
     }),
 
-  delete: protectedProcedure
+  delete: teacherProcedure
     .input(z.object({ fileAssetId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
+      const schoolId = ctx.schoolId;
 
       const asset = await withTenant(schoolId, (tx) =>
         tx.fileAsset.findFirst({

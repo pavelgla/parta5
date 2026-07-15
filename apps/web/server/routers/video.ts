@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
-import { router, protectedProcedure } from '../trpc/init';
+import { router, tenantProcedure, teacherProcedure } from '../trpc/init';
 import { prisma } from '@parta5/db';
 import { createStorageFromEnv } from '@parta5/storage';
 import { randomUUID } from 'node:crypto';
@@ -31,7 +31,7 @@ async function requireAsset(schoolId: string, videoAssetId: string) {
 }
 
 export const videoRouter = router({
-  requestUpload: protectedProcedure
+  requestUpload: teacherProcedure
     .input(
       z.object({
         originalName: z.string().min(1).max(255),
@@ -40,8 +40,8 @@ export const videoRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
-      const uploaderId = ctx.session.user.id!;
+      const schoolId = ctx.schoolId;
+      const uploaderId = ctx.userId;
       const mimeType = input.mimeType ?? 'video/mp4';
 
       if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
@@ -69,10 +69,10 @@ export const videoRouter = router({
       return { videoAssetId, uploadUrl, expiresAt };
     }),
 
-  confirmUploaded: protectedProcedure
+  confirmUploaded: teacherProcedure
     .input(z.object({ videoAssetId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
+      const schoolId = ctx.schoolId;
       await requireAsset(schoolId, input.videoAssetId);
 
       await prisma.videoAsset.update({
@@ -85,10 +85,10 @@ export const videoRouter = router({
       return { queued: true };
     }),
 
-  getVideo: protectedProcedure
+  getVideo: tenantProcedure
     .input(z.object({ videoAssetId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
+      const schoolId = ctx.schoolId;
       const asset = await requireAsset(schoolId, input.videoAssetId);
 
       const storage = createStorageFromEnv();
@@ -103,10 +103,10 @@ export const videoRouter = router({
       };
     }),
 
-  delete: protectedProcedure
+  delete: teacherProcedure
     .input(z.object({ videoAssetId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const schoolId = ctx.session.user.schoolId!;
+      const schoolId = ctx.schoolId;
       const asset = await requireAsset(schoolId, input.videoAssetId);
 
       const storage = createStorageFromEnv();
@@ -120,9 +120,9 @@ export const videoRouter = router({
       return { deleted: true };
     }),
 
-  listMyVideos: protectedProcedure.query(async ({ ctx }) => {
-    const schoolId = ctx.session.user.schoolId!;
-    const uploaderId = ctx.session.user.id!;
+  listMyVideos: tenantProcedure.query(async ({ ctx }) => {
+    const schoolId = ctx.schoolId;
+    const uploaderId = ctx.userId;
 
     const assets = await prisma.videoAsset.findMany({
       where: { schoolId, uploaderId },
