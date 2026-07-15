@@ -59,6 +59,18 @@ enum VideoAssetStatus {
   FAILED
 }
 
+enum QuestionType {
+  MULTICHOICE
+  TRUEFALSE
+  SHORTANSWER
+}
+
+enum QuizAttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  EXPIRED
+}
+
 // ──────────────────────────────────────────────────────────────
 // Core models
 // ──────────────────────────────────────────────────────────────
@@ -69,8 +81,9 @@ model School {
   name      String
   createdAt DateTime @default(now())
 
-  users   User[]
-  courses Course[]
+  users         User[]
+  courses       Course[]
+  questionBanks QuestionBank[]
 }
 
 model User {
@@ -82,13 +95,17 @@ model User {
   schoolId       String?  @db.Uuid
   createdAt      DateTime @default(now())
 
-  school       School?           @relation(fields: [schoolId], references: [id])
-  courses      Course[]          @relation("CourseCreator")
-  enrollments  Enrollment[]
-  completions  LessonCompletion[]
-  blockViews   BlockView[]
-  fileAssets   FileAsset[]
-  videoAssets  VideoAsset[]      @relation("VideoAssetUploader")
+  school             School?           @relation(fields: [schoolId], references: [id])
+  courses            Course[]          @relation("CourseCreator")
+  enrollments        Enrollment[]
+  completions        LessonCompletion[]
+  blockViews         BlockView[]
+  fileAssets         FileAsset[]
+  videoAssets        VideoAsset[]      @relation("VideoAssetUploader")
+  questionBanks      QuestionBank[]    @relation("QuestionBankCreator")
+  questions          Question[]        @relation("QuestionCreator")
+  quizzes            Quiz[]            @relation("QuizCreator")
+  quizAttempts       QuizAttempt[]     @relation("QuizAttemptUser")
 }
 
 model Course {
@@ -268,4 +285,118 @@ model LearningEvent {
   @@index([schoolId, timestamp(sort: Desc)])
   @@index([actorId, timestamp(sort: Desc)])
   @@index([objectType, objectId])
+}
+
+// ──────────────────────────────────────────────────────────────
+// Assessment models (quiz engine) — see ADR-004
+// ──────────────────────────────────────────────────────────────
+
+model QuestionBank {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId    String   @db.Uuid
+  name        String
+  parentId    String?  @db.Uuid
+  createdById String   @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school    School         @relation(fields: [schoolId], references: [id])
+  createdBy User           @relation("QuestionBankCreator", fields: [createdById], references: [id])
+  parent    QuestionBank?  @relation("BankTree", fields: [parentId], references: [id])
+  children  QuestionBank[] @relation("BankTree")
+  questions Question[]
+
+  @@index([schoolId])
+}
+
+model Question {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId    String       @db.Uuid
+  bankId      String       @db.Uuid
+  type        QuestionType
+  name        String
+  data        Json
+  version     Int          @default(1)
+  createdById String       @db.Uuid
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  bank          QuestionBank   @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  createdBy     User           @relation("QuestionCreator", fields: [createdById], references: [id])
+  quizQuestions QuizQuestion[]
+
+  @@index([schoolId, bankId])
+}
+
+model Quiz {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId         String   @db.Uuid
+  title            String
+  description      String?
+  timeLimitSeconds Int?
+  maxAttempts      Int?
+  passingScore     Float?
+  shuffleQuestions Boolean  @default(false)
+  createdById      String   @db.Uuid
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  createdBy     User           @relation("QuizCreator", fields: [createdById], references: [id])
+  quizQuestions QuizQuestion[]
+  attempts      QuizAttempt[]
+
+  @@index([schoolId])
+}
+
+model QuizQuestion {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId   String @db.Uuid
+  quizId     String @db.Uuid
+  questionId String @db.Uuid
+  order      Int
+  points     Float  @default(1)
+
+  quiz     Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  @@unique([quizId, questionId])
+  @@index([quizId, order])
+}
+
+model QuizAttempt {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId          String            @db.Uuid
+  quizId            String            @db.Uuid
+  userId            String            @db.Uuid
+  status            QuizAttemptStatus @default(IN_PROGRESS)
+  startedAt         DateTime          @default(now())
+  submittedAt       DateTime?
+  expiresAt         DateTime?
+  score             Float?
+  maxScore          Float
+  questionsSnapshot Json
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  quiz      Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user      User           @relation("QuizAttemptUser", fields: [userId], references: [id])
+  responses QuizResponse[]
+
+  @@index([schoolId, quizId, userId])
+  @@index([status, expiresAt])
+}
+
+model QuizResponse {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId     String   @db.Uuid
+  attemptId    String   @db.Uuid
+  questionId   String   @db.Uuid
+  answer       Json
+  isCorrect    Boolean?
+  earnedPoints Float?
+  updatedAt    DateTime @updatedAt
+
+  attempt QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
 }
