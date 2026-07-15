@@ -6,6 +6,7 @@ import { withTenant } from '@parta5/db';
 import { SUBJECT_IDS } from '@/lib/subjects';
 import { logEvent } from '../services/learning-events';
 import { assertCanEditCourse } from '../services/authz';
+import { createWithUniqueSlug } from './course-slug';
 
 type ValidationIssue = { path: string; message: string };
 
@@ -131,15 +132,19 @@ export const courseRouter = router({
       const schoolId = ctx.schoolId;
       const createdById = ctx.userId;
       const baseSlug = slugify(input.title) || 'course';
-      return withTenant(schoolId, async (tx) => {
-        const count = await tx.course.count({
-          where: { schoolId, slug: { startsWith: baseSlug } },
-        });
-        const slug = count === 0 ? baseSlug : `${baseSlug}-${count}`;
-        return tx.course.create({
-          data: { title: input.title, description: input.description, schoolId, createdById, slug },
-        });
-      });
+      return withTenant(schoolId, (tx) =>
+        createWithUniqueSlug(baseSlug, (slug) =>
+          tx.course.create({
+            data: {
+              title: input.title,
+              description: input.description,
+              schoolId,
+              createdById,
+              slug,
+            },
+          }),
+        ),
+      );
     }),
 
   update: teacherProcedure

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { router, teacherProcedure } from '../trpc/init';
 import { withTenant, type Prisma } from '@parta5/db';
-import { BlockDataSchema } from '../schemas/block-data';
+import { BLOCK_TYPES, parseBlockData } from '../schemas/block-data';
 import { assertCanEditCourse } from '../services/authz';
 
 async function requireLessonCourseId(
@@ -38,26 +38,14 @@ export const blockRouter = router({
     .input(
       z.object({
         lessonId: z.string().uuid(),
-        type: z.enum([
-          'HEADING',
-          'TEXT',
-          'LIST',
-          'IMAGE',
-          'VIDEO',
-          'VIDEO_EMBED',
-          'FILE',
-          'CALLOUT',
-          'CODE',
-          'QUOTE',
-          'DIVIDER',
-          'EMBED_IFRAME',
-        ]),
-        data: z.record(z.string(), z.unknown()),
+        type: z.enum(BLOCK_TYPES),
+        data: z.unknown(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const schoolId = ctx.schoolId;
       const { lessonId, type, data } = input;
+      const parsedData = parseBlockData(type, data);
       return withTenant(schoolId, async (tx) => {
         const courseId = await requireLessonCourseId(tx, lessonId);
         await assertCanEditCourse(tx, courseId, ctx.userId, ctx.session.user.role);
@@ -65,7 +53,7 @@ export const blockRouter = router({
         const block = await tx.contentBlock.create({
           data: {
             type,
-            data: data as Prisma.InputJsonValue,
+            data: parsedData as Prisma.InputJsonValue,
             lessonId,
             schoolId,
             order: count,

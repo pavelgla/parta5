@@ -5,15 +5,15 @@
 
 ---
 
-## TD-001 — block.create без discriminated union валидации
+## ~~TD-001 — block.create без discriminated union валидации~~ ✓ RESOLVED
 
 **Где:** `apps/web/server/routers/block.ts` → procedure `create`.
-**Что:** input.data валидируется как `z.record(z.string(), z.unknown())` вместо строгого `BlockDataSchema` discriminated union по `type` (как в `update`).
+**Что:** input.data валидировался как `z.record(z.string(), z.unknown())` вместо строгого `BlockDataSchema` discriminated union по `type` (как в `update`).
 **Почему:** TS2589 «Type instantiation is excessively deep» из-за Prisma JsonValue в return type. Упростили чтобы шаг 5 Phase 1 не блокировался.
 **Риск:** учитель через прямой вызов tRPC может создать блок с произвольным data, который сломает рендер. Через UI это не воспроизводится — UI всегда формирует корректный default.
-**Фикс:** разделить input data validation от Prisma return type. Например, explicit return type `Promise<{id: string}>` вместо infer. Или явный `as const` в discriminated union.
+**Фикс применён (2026-07-16):** input схема осталась loose (`type: z.enum(BLOCK_TYPES)`, `data: z.unknown()`), но `create` теперь вызывает `parseBlockData(type, data)` из `server/schemas/block-data.ts` — two-step валидация (enum type → per-type data schema через `Record<BlockType, z.ZodTypeAny>`), которая не объединяется в один discriminatedUnion и поэтому не триггерит TS2589; невалидные данные бросают `TRPCError BAD_REQUEST` до записи в БД.
 **Приоритет:** P2 (не критично, но фиксить до Phase 2 — там Quiz роутеры с похожей структурой).
-**Зафиксировано:** Phase 1 шаг 5 (2026-05-26).
+**Зафиксировано:** Phase 1 шаг 5 (2026-05-26). **Закрыто:** 2026-07-16.
 
 ---
 

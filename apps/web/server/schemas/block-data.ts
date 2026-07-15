@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 
 const HeadingData = z.object({
   type: z.literal('HEADING'),
@@ -111,3 +112,49 @@ export const BlockDataSchema = z.discriminatedUnion('type', [
 ]);
 
 export type BlockDataInput = z.infer<typeof BlockDataSchema>;
+
+export const BLOCK_TYPES = [
+  'HEADING',
+  'TEXT',
+  'LIST',
+  'IMAGE',
+  'VIDEO',
+  'VIDEO_EMBED',
+  'FILE',
+  'CALLOUT',
+  'CODE',
+  'QUOTE',
+  'DIVIDER',
+  'EMBED_IFRAME',
+] as const;
+
+export type BlockType = (typeof BLOCK_TYPES)[number];
+
+// Keyed access to each type's `data` schema only, kept separate from BlockDataSchema
+// to sidestep the TS2589 "excessively deep" error a single discriminated union
+// triggers when combined with Prisma's JsonValue in a mutation's return type (TD-001).
+const blockDataSchemaByType: Record<BlockType, z.ZodTypeAny> = {
+  HEADING: HeadingData.shape.data,
+  TEXT: TextData.shape.data,
+  LIST: ListData.shape.data,
+  IMAGE: ImageData.shape.data,
+  VIDEO: VideoData.shape.data,
+  VIDEO_EMBED: VideoEmbedData.shape.data,
+  FILE: FileData.shape.data,
+  CALLOUT: CalloutData.shape.data,
+  CODE: CodeData.shape.data,
+  QUOTE: QuoteData.shape.data,
+  DIVIDER: DividerData.shape.data,
+  EMBED_IFRAME: EmbedIframeData.shape.data,
+};
+
+export function parseBlockData(type: BlockType, data: unknown): Record<string, unknown> {
+  const result = blockDataSchemaByType[type].safeParse(data);
+  if (!result.success) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: `Invalid data for block type ${type}: ${result.error.message}`,
+    });
+  }
+  return result.data as Record<string, unknown>;
+}
