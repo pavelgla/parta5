@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<moodle_backup>
+  <information>
+    <name>backup-moodle2-course-2-testcourse-20260101-0000.mbz</name>
+    <moodle_version>2024100700</moodle_version>
+    <moodle_release>5.0.6</moodle_release>
+    <backup_version>2024100700</backup_version>
+    <backup_release>5.0.6</backup_release>
+    <backup_date>1735689600</backup_date>
+    <original_course_fullname>Test Course</original_course_fullname>
+    <original_course_shortname>testcourse</original_course_shortname>
+    <original_course_startdate>1704067200</original_course_startdate>
+    <contents>
+      <activities>
+        <activity>
+          <moduleid>10</moduleid>
+          <sectionid>1</sectionid>
+          <modulename>page</modulename>
+          <title>Welcome page</title>
+          <directory>activities/page_10</directory>
+        </activity>
+        <activity>
+          <moduleid>11</moduleid>
+          <sectionid>1</sectionid>
+          <modulename>resource</modulename>
+          <title>Course syllabus</title>
+          <directory>activities/resource_11</directory>
+        </activity>
+        <activity>
+          <moduleid>12</moduleid>
+          <sectionid>2</sectionid>
+          <modulename>quiz</modulename>
+          <title>Chapter 1 quiz</title>
+          <directory>activities/quiz_12</directory>
+        </activity>
+      </activities>
+      <sections>
+        <section>
+          <sectionid>1</sectionid>
+          <title>Introduction</title>
+          <directory>sections/section_1</directory>
+        </section>
+        <section>
+          <sectionid>2</sectionid>
+          <title>Chapter 1</title>
+          <directory>sections/section_2</directory>
+        </section>
+      </sections>
+    </contents>
+  </information>
+</moodle_backup>

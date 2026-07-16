@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<files>
+  <file id="1">
+    <id>1</id>
+    <contenthash>d41d8cd98f00b204e9800998ecf8427e00000000</contenthash>
+    <contextid>100</contextid>
+    <component>mod_resource</component>
+    <filearea>content</filearea>
+    <filepath>/</filepath>
+    <filename>.</filename>
+    <mimetype></mimetype>
+    <filesize>0</filesize>
+  </file>
+  <file id="2">
+    <id>2</id>
+    <contenthash>ab1234567890abcdef1234567890abcdef1234</contenthash>
+    <contextid>100</contextid>
+    <component>mod_resource</component>
+    <filearea>content</filearea>
+    <filepath>/</filepath>
+    <filename>notes.pdf</filename>
+    <mimetype>application/pdf</mimetype>
+    <filesize>4</filesize>
+  </file>
+  <file id="3">
+    <id>3</id>
+    <contenthash>cd9876543210fedcba9876543210fedcba9876</contenthash>
+    <contextid>101</contextid>
+    <component>mod_page</component>
+    <filearea>content</filearea>
+    <filepath>/</filepath>
+    <filename>cover.png</filename>
+    <mimetype>image/png</mimetype>
+    <filesize>2048</filesize>
+  </file>
+</files>
