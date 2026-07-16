@@ -53,6 +53,9 @@ importers:
       '@parta5/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@parta5/quiz':
+        specifier: workspace:*
+        version: link:../../packages/quiz
       '@parta5/storage':
         specifier: workspace:*
         version: link:../../packages/storage

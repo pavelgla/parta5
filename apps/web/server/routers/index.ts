@@ -11,6 +11,9 @@ import { embedRouter } from './embed';
 import { progressRouter } from './progress';
 import { eventsRouter } from './events';
 import { importRouter } from './import';
+import { questionBankRouter } from './question-bank';
+import { quizRouter } from './quiz';
+import { attemptRouter } from './attempt';
 
 export const appRouter = router({
   course: courseRouter,
@@ -25,6 +28,9 @@ export const appRouter = router({
   progress: progressRouter,
   events: eventsRouter,
   import: importRouter,
+  questionBank: questionBankRouter,
+  quiz: quizRouter,
+  attempt: attemptRouter,
 });
 
 export type AppRouter = typeof appRouter;
