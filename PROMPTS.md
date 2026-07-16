@@ -571,7 +571,7 @@
 
 4. Тесты: в существующий файл тестов курса/валидации (найди в apps/web/__tests__) добавь юнит-тесты validateCourse: SCHOOL — ошибки по subject/gradeLevel/cover есть; VOCATIONAL — их нет, но title/пустые модули по-прежнему дают ошибки; VOCATIONAL c gradeLevel 3 — ошибка диапазона.
 
-5. Проверка: pnpm --filter @parta5/db exec prisma validate, pnpm --filter web exec tsc --noEmit, pnpm test — зелёные.
+5. Проверка: pnpm --filter @parta5/db exec prisma validate, pnpm --filter web exec tsc --noEmit, pnpm test, pnpm --filter web build — зелёные (сборка обязательна: tsc и vitest не ловят ошибки резолва бандлера).
 ```
 
 ---
@@ -608,7 +608,7 @@
 
 5. Тесты apps/web/__tests__/: quiz-sanitize.test.ts (stripAnswers по всем трём типам — correct/feedback/acceptedAnswers вырезаны, prompt/choices.text остались); finalize-attempt.test.ts — чистая логика подсчёта на фиктивном снапшоте (2 вопроса, один без ответа → score частичный). Мокать prisma как в существующих authz-тестах (посмотри __tests__/authz.test.ts).
 
-6. Проверка: pnpm --filter web exec tsc --noEmit, pnpm test — зелёные.
+6. Проверка: pnpm --filter web exec tsc --noEmit, pnpm test, pnpm --filter web build — зелёные (сборка обязательна: tsc и vitest не ловят ошибки резолва бандлера).
 ```
 
 ---
@@ -657,7 +657,7 @@
 
 4. Доступ ко всем страницам — teacher/admin (паттерн /banks). Ссылка «Тесты» в навигацию рядом с «Банками вопросов».
 
-5. Проверка: pnpm --filter web exec tsc --noEmit, pnpm test — зелёные.
+5. Проверка: pnpm --filter web exec tsc --noEmit, pnpm test, pnpm --filter web build — зелёные (сборка обязательна: tsc и vitest не ловят ошибки резолва бандлера).
 ```
 
 ---
@@ -681,7 +681,7 @@
 
 6. Ошибка FORBIDDEN от answer при истёкшем времени — обработать: показать «Время вышло», дёрнуть byId за результатом.
 
-7. Тест: components/learn/__tests__ не заводим; добавь юнит на новую процедуру summary в существующем стиле роутер-тестов apps/web/__tests__ (мок prisma). Проверка: pnpm --filter web exec tsc --noEmit, pnpm test — зелёные.
+7. Тест: components/learn/__tests__ не заводим; добавь юнит на новую процедуру summary в существующем стиле роутер-тестов apps/web/__tests__ (мок prisma). Проверка: pnpm --filter web exec tsc --noEmit, pnpm test, pnpm --filter web build — зелёные (сборка обязательна: tsc и vitest не ловят ошибки резолва бандлера).
 ```
 
 ---
@@ -701,7 +701,7 @@
 
 4. Воркеру нужен @parta5/quiz — добавь dependency (workspace:*), pnpm install.
 
-5. Проверка: pnpm --filter @parta5/quiz test, pnpm --filter @parta5/worker exec tsc --noEmit (посмотри его typecheck-скрипт), pnpm --filter web exec tsc --noEmit, pnpm test — зелёные.
+5. Проверка: pnpm --filter @parta5/quiz test, pnpm --filter @parta5/worker exec tsc --noEmit (посмотри его typecheck-скрипт), pnpm --filter web exec tsc --noEmit, pnpm test, pnpm --filter web build — зелёные (сборка обязательна: tsc и vitest не ловят ошибки резолва бандлера).
 ```
 
 ---
@@ -721,7 +721,7 @@
 
 3. Тесты: юнит csv-логики — вынеси построение CSV в чистую функцию apps/web/server/lib/gradebook-csv.ts и протестируй в apps/web/__tests__/gradebook-csv.test.ts (экранирование, BOM, пустые ячейки).
 
-4. Проверка: pnpm --filter web exec tsc --noEmit, pnpm test — зелёные.
+4. Проверка: pnpm --filter web exec tsc --noEmit, pnpm test, pnpm --filter web build — зелёные (сборка обязательна: tsc и vitest не ловят ошибки резолва бандлера).
 ```
 
 ---
