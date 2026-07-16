@@ -1,10 +1,10 @@
-export type { StorageAdapter } from './adapter';
-export { buildKey } from './adapter';
-export { S3StorageAdapter } from './s3';
-export type { S3StorageConfig } from './s3';
+export type { StorageAdapter } from './adapter.js';
+export { buildKey } from './adapter.js';
+export { S3StorageAdapter } from './s3.js';
+export type { S3StorageConfig } from './s3.js';
 
-import { S3StorageAdapter } from './s3';
-import type { StorageAdapter } from './adapter';
+import { S3StorageAdapter } from './s3.js';
+import type { StorageAdapter } from './adapter.js';
 
 export function createStorageFromEnv(): StorageAdapter {
   const required = [

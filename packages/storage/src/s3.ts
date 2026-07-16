@@ -8,7 +8,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import type { StorageAdapter } from './adapter';
+import type { StorageAdapter } from './adapter.js';
 
 export interface S3StorageConfig {
   endpoint: string;
