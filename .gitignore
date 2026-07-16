@@ -16,3 +16,4 @@ coverage
 # LibreOffice/Office lock files
 .~lock.*#
 ~$*
+.local/
