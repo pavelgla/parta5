@@ -5,7 +5,7 @@
 **Рабочая папка:** `/home/gpaul/projects/parta5`
 **Запуск:** `./run-prompts.sh` или `./run-prompts.sh 5` (начать с промпта 5)
 
-Скоуп: **Этап A (hardening) + начало Этапа B (квиз)** — промпты 1–13 (выполнены 2026-07-16), **Этап C (импортер Moodle, C1–C5 + C8)** — промпты 14–20 (выполнены 2026-07-16), **Этап B остаток (B4–B9, квиз-UI)** — промпты 21–27 (выполнены 2026-07-16), **C2b (картинки вопросов + авторизованная раздача файлов)** — промпты 28–29. Из `docs/SUPERPLAN.md`. C6–C7 (экспорт с sel1, батч 106 курсов PSR) — операционные задачи, выполняются под присмотром, не через конвейер.
+Скоуп: **Этап A (hardening) + начало Этапа B (квиз)** — промпты 1–13 (выполнены 2026-07-16), **Этап C (импортер Moodle, C1–C5 + C8)** — промпты 14–20 (выполнены 2026-07-16), **Этап B остаток (B4–B9, квиз-UI)** — промпты 21–27 (выполнены 2026-07-16), **C2b (картинки вопросов + авторизованная раздача файлов)** — промпты 28–30. Из `docs/SUPERPLAN.md`. C6–C7 (экспорт с sel1, батч 106 курсов PSR) — операционные задачи, выполняются под присмотром, не через конвейер.
 Основание: `docs/reviews/2026-07-senior-product-review.md`.
 
 Перед запуском: `docker compose up -d db` (миграции в промптах 4 и 13 требуют живой Postgres), `.env` заполнен.
@@ -826,4 +826,37 @@
    - __tests__/import-course.test.ts: расширь фикстуру minimal-backup — в questions.xml у multichoice-вопроса questiontext с `<img src="@@PLUGINFILE@@/pic.png?time=1">`, в files.xml — запись question/questiontext (itemid = id этого вопроса) + директория, тело в files/<ab>/<hash>. Проверь на dryRun: questionFiles.count === 1, байты сходятся, S3 не вызывался (фейковый StorageAdapter фиксирует вызовы). Отдельный тест дедупа: два вопроса ссылаются на файлы с одинаковым contenthash → загрузка одна.
 
 5. Проверка: pnpm --filter @parta5/importer test, pnpm --filter @parta5/importer typecheck, pnpm typecheck, pnpm test — зелёные.
+```
+
+---
+
+## ПРОМПТ 30: Question-HTML — рендер HTML вопросов и санитайз на записи
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — монорепо LMS «Парта5»: Next.js 15 + tRPC v11, pnpm workspaces. Пакеты: packages/quiz (@parta5/quiz — zod-схемы вопросов, auto-grade, computeAttemptScore, isPassed/scorePercent), packages/importer (@parta5/importer — импорт Moodle; в нём src/questions/sanitize.ts с sanitizeQuestionHtml(html, resolve?) → { html, hasPluginFiles, unresolvedFiles }). Прочитай эти файлы, а также apps/web/components/learn/quiz-player.tsx и apps/web/server/routers/question-bank.ts.
+
+Контекст — подтверждённый блокер пилота. Тексты вопросов и вариантов в Moodle — это HTML. Импортёр их корректно санитайзит и переписывает картинки на /api/files/<id>, но плеер выводит их как ПЛОСКИЙ ТЕКСТ: ученик видит на экране буквально `<p><img src="/api/files/9009dc09-…" width="450" /></p>` и варианты `<p>1</p>` вместо картинки с дорожной ситуацией. У демо-квиза в сиде тексты plain, поэтому тесты и e2e этого не замечают. Места рендера в quiz-player.tsx: {data.prompt} (строки ~451, ~482, ~521), {choice.text} (~466), разбор результата {item.data.prompt} (~603) и {choice.text} (~637).
+
+Решение: prompt и choices[].text — это HTML; он санитайзится ПРИ ЗАПИСИ (импортёр уже, банк вопросов — добавить) и рендерится как HTML.
+
+1. Перенеси санитайзер в @parta5/quiz (общий домен, web не должен зависеть от importer):
+   - packages/quiz: добавь dependency sanitize-html и devDependency @types/sanitize-html, pnpm install.
+   - packages/quiz/src/sanitize.ts — перенеси sanitizeQuestionHtml из packages/importer/src/questions/sanitize.ts БЕЗ изменения поведения (та же сигнатура, тот же allowlist тегов/атрибутов, та же логика @@PLUGINFILE@@ и unresolvedFiles). Экспортируй из src/index.ts.
+   - packages/importer/src/questions/sanitize.ts — удали, все импорты в importer переведи на `import { sanitizeQuestionHtml } from '@parta5/quiz'` (dependency @parta5/quiz там уже есть). Тесты санитайзера из packages/importer/__tests__/questions/sanitize.test.ts перенеси в packages/quiz/__tests__/sanitize.test.ts.
+
+2. Санитайз на записи в банке вопросов — apps/web/server/routers/question-bank.ts, процедуры createQuestion и updateQuestion: перед questionData.parse прогоняй через sanitizeQuestionHtml поля data.prompt и, для MULTICHOICE, каждый choices[].text и choices[].feedback (если задан). resolve не передавай. Это defense-in-depth: учитель полу-доверенный, но скомпрометированный аккаунт не должен получить XSS у учеников. Не трогай acceptedAnswers у SHORTANSWER (это plain-текст для сравнения) и correctAnswer у TRUEFALSE.
+
+3. Рендер HTML в apps/web/components/learn/quiz-player.tsx — во ВСЕХ перечисленных местах ({data.prompt} ×3, {choice.text} ×2, {item.data.prompt}) заменить на dangerouslySetInnerHTML. Сделай маленький локальный компонент, например:
+   `function QuestionHtml({ html, className }: { html: string; className?: string })` → <div className={...} dangerouslySetInnerHTML={{ __html: html }} />
+   и используй его. Классы/вёрстку сохрани, data-testid="question-prompt" оставь на месте. Добавь в className `prose prose-sm max-w-none` там, где рендерится prompt (в проекте так уже делают для TEXT-блока — посмотри apps/web/app/(app)/learn/[courseId]/lessons/[lessonId]/page.tsx). Картинки не должны ломать вёрстку: убедись, что у img есть max-w-full (через prose или явным CSS).
+   ВАЖНО: комментарием у компонента зафиксируй, ПОЧЕМУ это безопасно — HTML санитайзится при записи (импортёр + questionBank), сырой ввод сюда не попадает.
+
+4. Те же места в UI банка вопросов (превью вопроса) — apps/web/components/question-editor/ и страницы /banks: если превью выводит prompt/choices как текст, переведи на тот же рендер HTML. Само редактирование (textarea) оставь как есть — учитель правит исходный HTML.
+
+5. Тесты:
+   - packages/quiz/__tests__/sanitize.test.ts — перенесённые тесты зелёные (script вырезается, разрешённые теги остаются, /api/files/<uuid> переживает санитайз).
+   - apps/web/__tests__/question-bank-sanitize.test.ts — юнит на createQuestion (мок prisma, стиль — как в __tests__/authz.test.ts с vi.mock('@/auth')): prompt с `<script>alert(1)</script><p>Вопрос</p>` сохраняется без script; choices[].text санитайзится; acceptedAnswers SHORTANSWER не меняются.
+   - packages/db/prisma/seed.ts: сделай prompt одного демо-вопроса HTML (например `<p>Какая постановка стопы <strong>рекомендуется</strong> начинающим?</p>`), чтобы e2e/quiz-flow гонял и HTML-путь тоже. Селекторы e2e при необходимости поправь (текст внутри тегов ищется по тексту, getByText обычно продолжает работать).
+
+6. Проверка: pnpm --filter @parta5/quiz test, pnpm --filter @parta5/importer test, pnpm --filter web exec tsc --noEmit, pnpm test, pnpm --filter web build — зелёные (сборка обязательна: tsc и vitest не ловят ошибки резолва бандлера).
 ```

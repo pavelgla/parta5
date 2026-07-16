@@ -76,6 +76,7 @@ PROMPTS=(
   "B9|test(e2e): demo quiz seed + quiz-flow e2e"
   "C2b-1|feat(files): authenticated /api/files/[id] serving + ADR-005, fix IMAGE/FILE blocks"
   "C2b-2|feat(importer): question images to S3 + @@PLUGINFILE@@ rewriting"
+  "C2b-3|feat(quiz): render question HTML, sanitize on write, shared sanitizer"
 )
 
 TOTAL=${#PROMPTS[@]}

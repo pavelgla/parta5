@@ -90,18 +90,25 @@ export const courseRouter = router({
 
   update: teacherProcedure
     .input(
-      z.object({
-        id: z.string().uuid(),
-        title: z.string().min(1).max(200).optional(),
-        description: z.string().optional(),
-        status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),
-        subject: z.enum(SUBJECT_IDS).optional().nullable(),
-        gradeLevel: z.number().int().min(1).max(12).optional().nullable(),
-        shortDescription: z.string().max(200).optional().nullable(),
-        longDescription: z.record(z.string(), z.unknown()).optional().nullable(),
-        coverFileAssetId: z.string().uuid().optional().nullable(),
-        slug: z.string().min(1).max(100).optional(),
-      }),
+      z
+        .object({
+          id: z.string().uuid(),
+          title: z.string().min(1).max(200).optional(),
+          description: z.string().optional(),
+          // status здесь НЕ принимается: раньше через него можно было выставить
+          // PUBLISHED в обход validateCourse и без publishedAt. Переходы статуса —
+          // только publish/unpublish/archive.
+          subject: z.enum(SUBJECT_IDS).optional().nullable(),
+          gradeLevel: z.number().int().min(1).max(12).optional().nullable(),
+          shortDescription: z.string().max(200).optional().nullable(),
+          longDescription: z.record(z.string(), z.unknown()).optional().nullable(),
+          coverFileAssetId: z.string().uuid().optional().nullable(),
+          slug: z.string().min(1).max(100).optional(),
+        })
+        // strict, а не молчаливое отбрасывание: клиент, пытающийся выставить
+        // status здесь, должен получить ошибку, а не успешный ответ и курс,
+        // оставшийся в прежнем статусе.
+        .strict(),
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;

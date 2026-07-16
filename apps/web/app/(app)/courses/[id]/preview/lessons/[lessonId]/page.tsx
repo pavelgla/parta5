@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { serverCaller } from '@/server/trpc/caller';
 import Link from 'next/link';
 import type { Route } from 'next';
+import { ListChecks } from 'lucide-react';
 import { BlockTracker } from '@/components/learn/block-tracker';
 import { VideoProgressTracker } from '@/components/learn/video-progress-tracker';
 import { getFileUrl } from '@/lib/file-url';
@@ -175,14 +176,33 @@ function LessonBlock({ type, data }: { type: string; data: Record<string, unknow
   if (type === 'DIVIDER') {
     return <hr className="border-gray-200" />;
   }
-  return (
-    <a
-      href={String(data.url ?? '#')}
-      className="text-blue-600 hover:underline text-sm"
-      target="_blank"
-      rel="noreferrer"
-    >
-      {String(data.filename ?? 'Файл')}
-    </a>
-  );
+  if (type === 'QUIZ') {
+    // Предпросмотр не записывает прогресс, поэтому попытку здесь не начинаем —
+    // показываем карточку теста со ссылкой на его настройки.
+    const quizId = data.quizId ? String(data.quizId) : '';
+    return (
+      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <div className="flex items-center gap-2">
+          <ListChecks size={18} className="shrink-0 text-gray-400" />
+          <span className="font-medium text-gray-900">
+            Тест: {String(data.title ?? 'без названия')}
+          </span>
+        </div>
+        <p className="mt-1 text-sm text-gray-500">
+          Прохождение доступно ученику в опубликованном курсе.
+        </p>
+        {quizId && (
+          <Link
+            href={{ pathname: `/quizzes/${quizId}` }}
+            className="mt-2 inline-block text-sm text-blue-600 hover:underline"
+          >
+            Настроить тест
+          </Link>
+        )}
+      </div>
+    );
+  }
+  // Неизвестный тип блока: раньше здесь рисовалась ссылка «Файл» на data.url —
+  // для любого нового типа (например QUIZ) это давало битую ссылку под видом файла.
+  return <p className="text-sm text-gray-400">Неподдерживаемый тип блока: {type}</p>;
 }

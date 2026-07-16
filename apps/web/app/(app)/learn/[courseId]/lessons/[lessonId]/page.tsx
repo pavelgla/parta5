@@ -180,15 +180,7 @@ function LessonBlock({ type, data }: { type: string; data: Record<string, unknow
   if (type === 'QUIZ') {
     return <QuizPlayer quizId={String(data.quizId ?? '')} title={String(data.title ?? '')} />;
   }
-  // Fallback
-  return (
-    <a
-      href={String(data.url ?? '#')}
-      className="text-blue-600 hover:underline text-sm"
-      target="_blank"
-      rel="noreferrer"
-    >
-      {String(data.filename ?? 'Файл')}
-    </a>
-  );
+  // Неизвестный тип блока: раньше здесь рисовалась ссылка «Файл» на data.url —
+  // для любого нового типа это давало битую ссылку под видом файла.
+  return <p className="text-sm text-gray-400">Неподдерживаемый тип блока: {type}</p>;
 }

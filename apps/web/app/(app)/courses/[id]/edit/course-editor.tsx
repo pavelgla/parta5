@@ -31,11 +31,26 @@ interface Props {
   course: CourseDetail;
 }
 
+/** publish отдаёт issues из validateCourse строкой JSON — показываем их по-человечески. */
+function formatPublishError(message: string): string {
+  try {
+    const issues = JSON.parse(message) as Array<{ message: string }>;
+    if (Array.isArray(issues) && issues.length > 0) {
+      return `Курс нельзя опубликовать: ${issues.map((i) => i.message).join('; ')}`;
+    }
+  } catch {
+    // не JSON — покажем как есть
+  }
+  return message;
+}
+
 export function CourseEditor({ course }: Props) {
   const router = useRouter();
   const [title, setTitle] = useState(course.title);
   const [description, setDescription] = useState(course.description ?? '');
   const [status, setStatus] = useState(course.status);
+
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   const updateMutation = trpc.course.update.useMutation({
     onSuccess: () => router.refresh(),
@@ -45,9 +60,28 @@ export function CourseEditor({ course }: Props) {
     onSuccess: () => router.push('/courses'),
   });
 
+  // Смена статуса идёт отдельными процедурами: publish проверяет курс через
+  // validateCourse и проставляет publishedAt, чего update делать не должен.
+  const onStatusSettled = {
+    onSuccess: () => {
+      setStatusError(null);
+      router.refresh();
+    },
+    onError: (err: { message: string }) => setStatusError(formatPublishError(err.message)),
+  };
+  const publishMutation = trpc.course.publish.useMutation(onStatusSettled);
+  const unpublishMutation = trpc.course.unpublish.useMutation(onStatusSettled);
+  const archiveMutation = trpc.course.archive.useMutation(onStatusSettled);
+
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    updateMutation.mutate({ id: course.id, title, description: description || undefined, status });
+    setStatusError(null);
+    updateMutation.mutate({ id: course.id, title, description: description || undefined });
+
+    if (status === course.status) return;
+    if (status === 'PUBLISHED') publishMutation.mutate({ id: course.id });
+    else if (status === 'DRAFT') unpublishMutation.mutate({ id: course.id });
+    else if (status === 'ARCHIVED') archiveMutation.mutate({ id: course.id });
   }
 
   return (
@@ -86,6 +120,7 @@ export function CourseEditor({ course }: Props) {
             <option value="PUBLISHED">Опубликован</option>
             <option value="ARCHIVED">Архив</option>
           </select>
+          {statusError && <p className="mt-2 text-sm text-red-600">{statusError}</p>}
         </div>
         <div className="flex justify-between pt-2">
           <button
