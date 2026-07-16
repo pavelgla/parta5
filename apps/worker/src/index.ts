@@ -1,8 +1,9 @@
-import { Worker } from 'bullmq';
+import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { pino } from 'pino';
 import { handleTranscodeVideo } from './jobs/transcode-video.js';
 import { handleImportCourse } from './jobs/import-course.js';
+import { handleExpireAttempts } from './jobs/expire-attempts.js';
 
 const log = pino({
   name: 'worker',
@@ -52,11 +53,44 @@ const importWorker = new Worker(
 importWorker.on('completed', (job) => log.info({ jobId: job.id }, 'Import job completed'));
 importWorker.on('failed', (job, err) => log.error({ jobId: job?.id, err }, 'Import job failed'));
 
+// Periodic maintenance: closes quiz attempts that ran past their time limit
+// and were never submitted by the client. Concurrency 1 — cheap, low-volume,
+// no need to parallelize the per-run sweep.
+const maintenanceQueue = new Queue('quiz-maintenance', { connection });
+
+const maintenanceWorker = new Worker(
+  'quiz-maintenance',
+  async (job) => {
+    log.info({ jobId: job.id, name: job.name }, 'Processing maintenance job');
+    if (job.name === 'expire-attempts') {
+      await handleExpireAttempts();
+    }
+  },
+  { connection, concurrency: 1 },
+);
+
+maintenanceWorker.on('completed', (job) =>
+  log.info({ jobId: job.id }, 'Maintenance job completed'),
+);
+maintenanceWorker.on('failed', (job, err) =>
+  log.error({ jobId: job?.id, err }, 'Maintenance job failed'),
+);
+
+await maintenanceQueue.upsertJobScheduler(
+  'expire-attempts',
+  { every: 60_000 },
+  {
+    name: 'expire-attempts',
+  },
+);
+
 log.info('Worker started, waiting for jobs');
 
 process.on('SIGTERM', async () => {
   await worker.close();
   await importWorker.close();
+  await maintenanceWorker.close();
+  await maintenanceQueue.close();
   connection.disconnect();
   process.exit(0);
 });

@@ -19,3 +19,11 @@ export {
 
 export type { AttemptItem, AttemptResult, GradeResult } from './grade.js';
 export { gradeAttempt, gradeQuestion } from './grade.js';
+
+export type {
+  AttemptScoreResult,
+  PerQuestionScore,
+  ResponseRecord,
+  SnapshotItem,
+} from './finalize.js';
+export { computeAttemptScore } from './finalize.js';

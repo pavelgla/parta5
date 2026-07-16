@@ -171,6 +171,9 @@ importers:
       '@parta5/importer':
         specifier: workspace:*
         version: link:../../packages/importer
+      '@parta5/quiz':
+        specifier: workspace:*
+        version: link:../../packages/quiz
       '@parta5/storage':
         specifier: workspace:*
         version: link:../../packages/storage

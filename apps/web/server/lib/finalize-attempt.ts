@@ -1,12 +1,7 @@
 import type { Prisma } from '@parta5/db';
-import { gradeQuestion, type QuestionData } from '@parta5/quiz';
+import { computeAttemptScore, type QuestionData, type SnapshotItem } from '@parta5/quiz';
 
-export interface SnapshotItem {
-  questionId: string;
-  order: number;
-  points: number;
-  data: QuestionData;
-}
+export type { SnapshotItem } from '@parta5/quiz';
 
 export interface ResponseRecord {
   questionId: string;
@@ -29,19 +24,25 @@ export interface FinalizeResult {
   items: GradedItem[];
 }
 
-// Pure grading logic: no answer for a question grades as 0 points, never throws.
+// Thin wrapper over @parta5/quiz's pure grader: reattaches the snapshot's
+// question data/order and the raw answer, which routers/UI need but the
+// worker's expire-attempts job doesn't.
 export function computeFinalizeResult(
   snapshot: SnapshotItem[],
   responses: ResponseRecord[],
 ): FinalizeResult {
+  const { score, maxScore, perQuestion } = computeAttemptScore(snapshot, responses);
   const answerByQuestion = new Map(responses.map((r) => [r.questionId, r.answer]));
+  const gradeByQuestion = new Map(perQuestion.map((g) => [g.questionId, g]));
   const items: GradedItem[] = snapshot.map((item) => {
-    const answer = answerByQuestion.get(item.questionId) ?? null;
-    const { isCorrect, earnedPoints } = gradeQuestion(item.data, answer, item.points);
-    return { ...item, answer, isCorrect, earnedPoints };
+    const grade = gradeByQuestion.get(item.questionId)!;
+    return {
+      ...item,
+      answer: answerByQuestion.get(item.questionId) ?? null,
+      isCorrect: grade.isCorrect,
+      earnedPoints: grade.earnedPoints,
+    };
   });
-  const score = items.reduce((sum, item) => sum + item.earnedPoints, 0);
-  const maxScore = snapshot.reduce((sum, item) => sum + item.points, 0);
   return { score, maxScore, items };
 }
 
