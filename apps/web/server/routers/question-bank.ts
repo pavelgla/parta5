@@ -2,8 +2,40 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import type { Prisma } from '@parta5/db';
 import { withTenant } from '@parta5/db';
-import { questionData } from '@parta5/quiz';
+import { questionData, sanitizeQuestionHtml } from '@parta5/quiz';
 import { router, teacherProcedure } from '../trpc/init';
+
+/**
+ * Defense-in-depth: a compromised teacher account shouldn't be able to plant
+ * XSS in question HTML that students then load via dangerouslySetInnerHTML.
+ * `data` is unvalidated user input here, so every field access is guarded.
+ */
+function sanitizeQuestionInputData(data: unknown): unknown {
+  if (data === null || typeof data !== 'object') return data;
+  const obj = data as Record<string, unknown>;
+  const sanitized: Record<string, unknown> = { ...obj };
+
+  if (typeof obj.prompt === 'string') {
+    sanitized.prompt = sanitizeQuestionHtml(obj.prompt).html;
+  }
+
+  if (obj.type === 'MULTICHOICE' && Array.isArray(obj.choices)) {
+    sanitized.choices = obj.choices.map((choice) => {
+      if (choice === null || typeof choice !== 'object') return choice;
+      const c = choice as Record<string, unknown>;
+      const sanitizedChoice: Record<string, unknown> = { ...c };
+      if (typeof c.text === 'string') {
+        sanitizedChoice.text = sanitizeQuestionHtml(c.text).html;
+      }
+      if (typeof c.feedback === 'string') {
+        sanitizedChoice.feedback = sanitizeQuestionHtml(c.feedback).html;
+      }
+      return sanitizedChoice;
+    });
+  }
+
+  return sanitized;
+}
 
 export const questionBankRouter = router({
   list: teacherProcedure.query(async ({ ctx }) => {
@@ -97,7 +129,7 @@ export const questionBankRouter = router({
       z.object({ bankId: z.string().uuid(), name: z.string().min(1).max(200), data: z.unknown() }),
     )
     .mutation(async ({ ctx, input }) => {
-      const parsed = questionData.safeParse(input.data);
+      const parsed = questionData.safeParse(sanitizeQuestionInputData(input.data));
       if (!parsed.success) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -128,7 +160,7 @@ export const questionBankRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const parsed = questionData.safeParse(input.data);
+      const parsed = questionData.safeParse(sanitizeQuestionInputData(input.data));
       if (!parsed.success) {
         throw new TRPCError({
           code: 'BAD_REQUEST',

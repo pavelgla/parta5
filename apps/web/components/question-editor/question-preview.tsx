@@ -9,16 +9,28 @@ interface Props {
 export function QuestionPreview({ data }: Props) {
   return (
     <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-6">
-      <p className="whitespace-pre-wrap text-sm text-gray-900">
-        {data.prompt || <span className="text-gray-400">Текст вопроса…</span>}
-      </p>
+      {data.prompt ? (
+        <div
+          className="prose prose-sm max-w-none text-gray-900"
+          dangerouslySetInnerHTML={{ __html: data.prompt }}
+        />
+      ) : (
+        <p className="text-sm text-gray-400">Текст вопроса…</p>
+      )}
 
       {data.type === 'MULTICHOICE' && (
         <div className="space-y-2">
           {data.choices.map((choice) => (
             <label key={choice.id} className="flex items-center gap-2 text-sm text-gray-700">
               <input type={data.single ? 'radio' : 'checkbox'} name="preview-choice" disabled />
-              {choice.text || <span className="text-gray-400">Вариант…</span>}
+              {choice.text ? (
+                <span
+                  className="prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: choice.text }}
+                />
+              ) : (
+                <span className="text-gray-400">Вариант…</span>
+              )}
             </label>
           ))}
         </div>

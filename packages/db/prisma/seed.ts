@@ -632,7 +632,7 @@ async function main() {
       points: 2,
       data: {
         type: 'MULTICHOICE',
-        prompt: 'Какая постановка стопы рекомендуется начинающим бегунам?',
+        prompt: '<p>Какая постановка стопы <strong>рекомендуется</strong> начинающим?</p>',
         single: true,
         shuffleChoices: false,
         choices: [

@@ -1,5 +1,4 @@
-import { questionData, type QuestionData } from '@parta5/quiz';
-import { sanitizeQuestionHtml } from './sanitize.js';
+import { questionData, sanitizeQuestionHtml, type QuestionData } from '@parta5/quiz';
 import type { ParsedQuestion, SkippedQuestion } from './types.js';
 
 export interface RawAnswer {
@@ -35,7 +34,7 @@ function buildData(raw: RawQuestion, prompt: string): QuestionData {
       shuffleChoices: Boolean(raw.shuffleanswers),
       choices: raw.answers.map((answer, index) => ({
         id: String(index),
-        text: answer.text,
+        text: sanitizeQuestionHtml(answer.text).html,
         correct: answer.fraction > 0,
       })),
       defaultPoints,

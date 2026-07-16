@@ -8,7 +8,6 @@ import { parseManifest, type CourseManifest, type ManifestActivity } from './man
 import { parseSection } from './section.js';
 import { parseFilesManifest, contentPath, type BackupFileEntry } from './files.js';
 import { collectQuestionFiles, otherQuestionFileareas } from './questions/question-files.js';
-import { sanitizeQuestionHtml } from './questions/sanitize.js';
 import { parsePage } from './activities/page.js';
 import { parseLabel } from './activities/label.js';
 import { parseResource } from './activities/resource.js';
@@ -18,6 +17,7 @@ import { getActivityContextId } from './activities/context.js';
 import { parseBackupQuestions } from './questions/backup-questions.js';
 import type { ParsedQuestion, SkippedQuestion } from './questions/types.js';
 import type { QuestionData } from '@parta5/quiz';
+import { sanitizeQuestionHtml } from '@parta5/quiz';
 import { slugify } from './translit.js';
 import type { ImportReport, SkippedActivity } from './report.js';
 

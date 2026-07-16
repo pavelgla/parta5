@@ -29,3 +29,6 @@ export type {
 export { computeAttemptScore } from './finalize.js';
 
 export { isPassed, scorePercent } from './passing.js';
+
+export type { SanitizeQuestionHtmlResult } from './sanitize.js';
+export { sanitizeQuestionHtml } from './sanitize.js';

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createXmlParser } from '../xml.js';
-import { sanitizeQuestionHtml } from '../questions/sanitize.js';
+import { sanitizeQuestionHtml } from '@parta5/quiz';
 import { nullableString } from '../xml-common.js';
 
 export interface ParsedUrl {

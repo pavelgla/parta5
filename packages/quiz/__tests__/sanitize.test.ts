@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeQuestionHtml } from '../../src/questions/sanitize';
+import { sanitizeQuestionHtml } from '../src/sanitize';
 
 describe('sanitizeQuestionHtml', () => {
   it('keeps allowed tags and strips disallowed ones', () => {

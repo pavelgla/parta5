@@ -37,6 +37,24 @@ function formatTime(ms: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+/**
+ * Question prompt/choice text is HTML sanitized at write time (importer +
+ * questionBank router), so raw untrusted input never reaches this component.
+ */
+function QuestionHtml({
+  html,
+  className,
+  testId,
+}: {
+  html: string;
+  className?: string;
+  testId?: string;
+}) {
+  return (
+    <div data-testid={testId} className={className} dangerouslySetInnerHTML={{ __html: html }} />
+  );
+}
+
 export function QuizPlayer({ quizId, title }: Props) {
   const [attempt, setAttempt] = useState<AttemptSnapshot | null>(null);
   const [result, setResult] = useState<SubmitResult | null>(null);
@@ -444,12 +462,11 @@ function QuestionForm({
 
     return (
       <div data-testid="question-container" className="space-y-3">
-        <p
-          data-testid="question-prompt"
-          className="whitespace-pre-wrap text-sm font-medium text-gray-900"
-        >
-          {data.prompt}
-        </p>
+        <QuestionHtml
+          testId="question-prompt"
+          html={data.prompt}
+          className="prose prose-sm max-w-none text-sm font-medium text-gray-900"
+        />
         <div className="space-y-2">
           {data.choices.map((choice) => (
             <label
@@ -463,7 +480,7 @@ function QuestionForm({
                 checked={current.includes(choice.id)}
                 onChange={() => toggle(choice.id)}
               />
-              {choice.text}
+              <QuestionHtml html={choice.text} className="prose prose-sm max-w-none" />
             </label>
           ))}
         </div>
@@ -475,12 +492,11 @@ function QuestionForm({
     const current = (value as { value: boolean } | undefined)?.value;
     return (
       <div data-testid="question-container" className="space-y-3">
-        <p
-          data-testid="question-prompt"
-          className="whitespace-pre-wrap text-sm font-medium text-gray-900"
-        >
-          {data.prompt}
-        </p>
+        <QuestionHtml
+          testId="question-prompt"
+          html={data.prompt}
+          className="prose prose-sm max-w-none text-sm font-medium text-gray-900"
+        />
         <div className="flex gap-2">
           <button
             type="button"
@@ -514,12 +530,11 @@ function QuestionForm({
   const current = (value as { text: string } | undefined)?.text ?? '';
   return (
     <div data-testid="question-container" className="space-y-3">
-      <p
-        data-testid="question-prompt"
-        className="whitespace-pre-wrap text-sm font-medium text-gray-900"
-      >
-        {data.prompt}
-      </p>
+      <QuestionHtml
+        testId="question-prompt"
+        html={data.prompt}
+        className="prose prose-sm max-w-none text-sm font-medium text-gray-900"
+      />
       <input
         type="text"
         data-testid="shortanswer-input"
@@ -599,9 +614,10 @@ function QuestionReview({ index, item }: { index: number; item: GradedItem }) {
       }`}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="whitespace-pre-wrap text-sm font-medium text-gray-900">
-          {index}. {item.data.prompt}
-        </p>
+        <div className="flex items-baseline gap-1 text-sm font-medium text-gray-900">
+          <span>{index}.</span>
+          <QuestionHtml html={item.data.prompt} className="prose prose-sm max-w-none" />
+        </div>
         <span
           data-testid="correctness-badge"
           className={`shrink-0 text-xs font-semibold ${
@@ -629,14 +645,14 @@ function AnswerReview({ data, answer }: { data: QuestionData; answer: unknown })
           return (
             <li
               key={choice.id}
-              className={
+              className={`flex items-baseline gap-1 ${
                 chosen ? (choice.correct ? 'text-green-700' : 'text-red-700') : 'text-gray-500'
-              }
+              }`}
             >
-              {chosen ? '● ' : '○ '}
-              {choice.text}
-              {choice.correct ? ' (верный вариант)' : ''}
-              {chosen && choice.feedback ? ` — ${choice.feedback}` : ''}
+              <span>{chosen ? '●' : '○'}</span>
+              <QuestionHtml html={choice.text} className="prose prose-sm max-w-none" />
+              {choice.correct ? <span>(верный вариант)</span> : null}
+              {chosen && choice.feedback ? <span>— {choice.feedback}</span> : null}
             </li>
           );
         })}

@@ -10,7 +10,6 @@ export type { BackupFileEntry } from './files.js';
 export { contentPath, parseFilesManifest } from './files.js';
 
 export type { ParsedQuestion, QuestionParseResult, SkippedQuestion } from './questions/types.js';
-export { sanitizeQuestionHtml } from './questions/sanitize.js';
 export type { RawAnswer, RawQuestion } from './questions/convert.js';
 export { convertQuestion } from './questions/convert.js';
 export { parseMoodleXml, parseMoodleXmlFile } from './questions/moodle-xml.js';
