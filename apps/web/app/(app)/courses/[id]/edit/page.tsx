@@ -24,6 +24,12 @@ export default async function EditCoursePage({ params }: Props) {
         </Link>
         <span className="text-gray-300">/</span>
         <h1 className="text-xl font-bold text-gray-900 truncate">{course.title}</h1>
+        <Link
+          href={`/courses/${id}/gradebook`}
+          className="ml-auto text-sm font-medium text-blue-600 hover:underline"
+        >
+          Журнал
+        </Link>
       </div>
 
       <CourseEditor course={course} />
