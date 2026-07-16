@@ -1,15 +1,37 @@
 import Link from 'next/link';
 import { auth, signOut } from '@/auth';
+import { UserRole } from '@parta5/db';
+
+const TEACHER_ROLES: UserRole[] = [UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN];
 
 export async function SiteHeader() {
   const session = await auth();
+  const isTeacher = !!session?.user && TEACHER_ROLES.includes(session.user.role);
 
   return (
     <header className="border-b border-gray-200 bg-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-        <Link href="/" className="text-xl font-bold text-blue-600">
-          парта5
-        </Link>
+        <div className="flex items-center gap-6">
+          <Link href="/" className="text-xl font-bold text-blue-600">
+            парта5
+          </Link>
+          {isTeacher && (
+            <nav className="flex items-center gap-4">
+              <Link
+                href="/courses"
+                className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Курсы
+              </Link>
+              <Link
+                href="/banks"
+                className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Банки вопросов
+              </Link>
+            </nav>
+          )}
+        </div>
         <nav className="flex items-center gap-4">
           {session?.user ? (
             <>
