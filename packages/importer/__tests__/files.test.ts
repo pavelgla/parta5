@@ -8,7 +8,7 @@ describe('parseFilesManifest', () => {
   it('filters out directory entries (filename === ".")', async () => {
     const files = await parseFilesManifest(FIXTURE_DIR);
 
-    expect(files).toHaveLength(2);
+    expect(files).toHaveLength(3);
     expect(files.some((f) => f.filename === '.')).toBe(false);
   });
 
@@ -22,6 +22,7 @@ describe('parseFilesManifest', () => {
       contextid: 100,
       component: 'mod_resource',
       filearea: 'content',
+      itemid: 0,
       filename: 'notes.pdf',
       filepath: '/',
       mimetype: 'application/pdf',

@@ -11,6 +11,7 @@ export interface ImportReport {
   lessons: number;
   blocks: number;
   files: { count: number; totalBytes: number };
+  questionFiles: { count: number; totalBytes: number };
   skippedActivities: SkippedActivity[];
   warnings: string[];
   quizzes: number;

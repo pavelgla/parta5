@@ -6,6 +6,7 @@
     <contextid>100</contextid>
     <component>mod_resource</component>
     <filearea>content</filearea>
+    <itemid>0</itemid>
     <filepath>/</filepath>
     <filename>.</filename>
     <mimetype></mimetype>
@@ -17,6 +18,7 @@
     <contextid>100</contextid>
     <component>mod_resource</component>
     <filearea>content</filearea>
+    <itemid>0</itemid>
     <filepath>/</filepath>
     <filename>notes.pdf</filename>
     <mimetype>application/pdf</mimetype>
@@ -28,9 +30,34 @@
     <contextid>101</contextid>
     <component>mod_page</component>
     <filearea>content</filearea>
+    <itemid>0</itemid>
     <filepath>/</filepath>
     <filename>cover.png</filename>
     <mimetype>image/png</mimetype>
     <filesize>2048</filesize>
+  </file>
+  <file id="4">
+    <id>4</id>
+    <contenthash>ef1234567890abcdef1234567890abcdef1234</contenthash>
+    <contextid>3</contextid>
+    <component>question</component>
+    <filearea>questiontext</filearea>
+    <itemid>100</itemid>
+    <filepath>/</filepath>
+    <filename>pic.png</filename>
+    <mimetype>image/png</mimetype>
+    <filesize>11</filesize>
+  </file>
+  <file id="5">
+    <id>5</id>
+    <contenthash>d41d8cd98f00b204e9800998ecf8427e00000000</contenthash>
+    <contextid>3</contextid>
+    <component>question</component>
+    <filearea>questiontext</filearea>
+    <itemid>100</itemid>
+    <filepath>/</filepath>
+    <filename>.</filename>
+    <mimetype></mimetype>
+    <filesize>0</filesize>
   </file>
 </files>

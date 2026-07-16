@@ -25,7 +25,7 @@
               <question id="100">
                 <parent>0</parent>
                 <name>Q1 multichoice</name>
-                <questiontext>&lt;p&gt;2+2=?&lt;/p&gt;</questiontext>
+                <questiontext>&lt;p&gt;2+2=?&lt;/p&gt;&lt;p&gt;&lt;img src=&quot;@@PLUGINFILE@@/pic.png?time=1610994686246&quot; alt=&quot;pic&quot;&gt;&lt;/p&gt;</questiontext>
                 <questiontextformat>1</questiontextformat>
                 <generalfeedback></generalfeedback>
                 <generalfeedbackformat>1</generalfeedbackformat>

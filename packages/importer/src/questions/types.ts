@@ -4,6 +4,8 @@ export interface ParsedQuestion {
   name: string;
   data: QuestionData;
   hasPluginFiles: boolean;
+  pluginFileNames: string[];
+  rawPromptHtml: string;
 }
 
 export interface SkippedQuestion {

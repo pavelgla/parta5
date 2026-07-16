@@ -32,6 +32,9 @@ const DRY_RUN_STORAGE: StorageAdapter = {
   async putObjectFromPath() {
     throw new Error('dry-run: обращение к хранилищу не ожидается');
   },
+  async presignDownload() {
+    throw new Error('dry-run: обращение к хранилищу не ожидается');
+  },
 };
 
 // `pnpm --filter <pkg> <script> -- <args>` forwards the literal `--` token

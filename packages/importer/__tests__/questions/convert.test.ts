@@ -179,4 +179,20 @@ describe('convertQuestion', () => {
 
     expect(result.question?.hasPluginFiles).toBe(true);
   });
+
+  it('captures pluginFileNames and the raw prompt html for later re-resolution', () => {
+    const result = convertQuestion({
+      name: 'Q10',
+      qtype: 'truefalse',
+      questiontextHtml: '<p><img src="@@PLUGINFILE@@/pic.png?time=1"></p>',
+      defaultgrade: 1,
+      answers: [
+        { text: 'true', fraction: 100 },
+        { text: 'false', fraction: 0 },
+      ],
+    });
+
+    expect(result.question?.pluginFileNames).toEqual(['pic.png']);
+    expect(result.question?.rawPromptHtml).toBe('<p><img src="@@PLUGINFILE@@/pic.png?time=1"></p>');
+  });
 });

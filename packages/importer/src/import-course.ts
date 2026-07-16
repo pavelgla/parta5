@@ -7,6 +7,8 @@ import { buildKey } from '@parta5/storage';
 import { parseManifest, type CourseManifest, type ManifestActivity } from './manifest.js';
 import { parseSection } from './section.js';
 import { parseFilesManifest, contentPath, type BackupFileEntry } from './files.js';
+import { collectQuestionFiles, otherQuestionFileareas } from './questions/question-files.js';
+import { sanitizeQuestionHtml } from './questions/sanitize.js';
 import { parsePage } from './activities/page.js';
 import { parseLabel } from './activities/label.js';
 import { parseResource } from './activities/resource.js';
@@ -15,6 +17,7 @@ import { parseQuiz } from './activities/quiz.js';
 import { getActivityContextId } from './activities/context.js';
 import { parseBackupQuestions } from './questions/backup-questions.js';
 import type { ParsedQuestion, SkippedQuestion } from './questions/types.js';
+import type { QuestionData } from '@parta5/quiz';
 import { slugify } from './translit.js';
 import type { ImportReport, SkippedActivity } from './report.js';
 
@@ -24,6 +27,11 @@ interface MatchedQuizInstance {
   slot: number;
   maxmark: number;
   questionIndex: number;
+}
+
+interface QuestionFileMatch {
+  filename: string;
+  file: BackupFileEntry;
 }
 
 type PlannedBlock =
@@ -61,6 +69,9 @@ interface ImportPlan {
   quizzes: number;
   parsedQuestions: ParsedQuestion[];
   skippedQuestions: SkippedQuestion[];
+  questionFileMatches: Map<ParsedQuestion, QuestionFileMatch[]>;
+  questionFileCount: number;
+  questionFileTotalBytes: number;
 }
 
 type ParsedQuestionsResult = Awaited<ReturnType<typeof parseBackupQuestions>>;
@@ -131,6 +142,43 @@ async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<I
 
   const firstSummary = sections[0]?.summaryHtml ?? null;
 
+  const questionFileMatches = new Map<ParsedQuestion, QuestionFileMatch[]>();
+  let questionFileCount = 0;
+  let questionFileTotalBytes = 0;
+
+  if (quizCtx.parsed) {
+    const filesByQuestionId = collectQuestionFiles(filesManifest);
+    for (const area of otherQuestionFileareas(filesManifest)) {
+      warnings.push(
+        `Обнаружена неподдерживаемая область файлов вопроса "${area}" — не переносится`,
+      );
+    }
+
+    const seenContenthashes = new Set<string>();
+    for (const [questionId, question] of quizCtx.parsed.byId) {
+      if (question.pluginFileNames.length === 0) continue;
+
+      const candidates = filesByQuestionId.get(questionId) ?? [];
+      const matches: QuestionFileMatch[] = [];
+      for (const filename of question.pluginFileNames) {
+        const file = candidates.find((entry) => entry.filename === filename);
+        if (!file) {
+          warnings.push(`вопрос ${question.name}: файл ${filename} не найден в бэкапе`);
+          continue;
+        }
+        matches.push({ filename, file });
+        if (!seenContenthashes.has(file.contenthash)) {
+          seenContenthashes.add(file.contenthash);
+          questionFileCount += 1;
+          questionFileTotalBytes += file.filesize;
+        }
+      }
+      if (matches.length > 0) {
+        questionFileMatches.set(question, matches);
+      }
+    }
+  }
+
   return {
     courseTitle: manifest.originalCourseFullname,
     courseDescription: firstSummary,
@@ -142,6 +190,9 @@ async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<I
     quizzes: quizCtx.quizCount,
     parsedQuestions: quizCtx.parsed?.questions ?? [],
     skippedQuestions: quizCtx.parsed?.skipped ?? [],
+    questionFileMatches,
+    questionFileCount,
+    questionFileTotalBytes,
   };
 }
 
@@ -251,13 +302,6 @@ async function buildLesson(
       for (const skipped of quizCtx.parsed.skipped) {
         warnings.push(`вопрос ${skipped.name} пропущен: ${skipped.reason}`);
       }
-      const withPluginFiles = quizCtx.parsed.questions.filter((q) => q.hasPluginFiles).length;
-      if (withPluginFiles > 0) {
-        warnings.push(
-          `${withPluginFiles} вопрос(ов) содержат встроенные файлы (@@PLUGINFILE@@) — ` +
-            `изображения и вложения внутри вопросов не переносятся в MVP`,
-        );
-      }
     }
     const { parsed } = quizCtx;
 
@@ -314,7 +358,11 @@ function buildReport(plan: ImportPlan, courseSlug: string): ImportReport {
     modules: plan.modules.length,
     lessons,
     blocks,
-    files: { count: plan.fileCount, totalBytes: plan.fileTotalBytes },
+    files: {
+      count: plan.fileCount + plan.questionFileCount,
+      totalBytes: plan.fileTotalBytes + plan.questionFileTotalBytes,
+    },
+    questionFiles: { count: plan.questionFileCount, totalBytes: plan.questionFileTotalBytes },
     skippedActivities: plan.skippedActivities,
     warnings: plan.warnings,
     quizzes: plan.quizzes,
@@ -383,6 +431,24 @@ export async function importCourse(opts: ImportCourseOptions): Promise<ImportRep
     uploadedKeys.push(key);
   }
 
+  const questionFileUploadsByHash = new Map<string, { key: string; file: BackupFileEntry }>();
+  for (const matches of plan.questionFileMatches.values()) {
+    for (const match of matches) {
+      if (questionFileUploadsByHash.has(match.file.contenthash)) continue;
+      const uuid = crypto.randomUUID();
+      const key = buildKey(schoolId, 'files', uuid, match.file.filename);
+      questionFileUploadsByHash.set(match.file.contenthash, { key, file: match.file });
+    }
+  }
+  for (const { key, file } of questionFileUploadsByHash.values()) {
+    await storage.putObjectFromPath(
+      key,
+      contentPath(backupDir, file.contenthash),
+      file.mimetype ?? 'application/octet-stream',
+    );
+    uploadedKeys.push(key);
+  }
+
   try {
     return await withTenantClient(db, schoolId, async (tx) => {
       const course = await tx.course.create({
@@ -406,14 +472,49 @@ export async function importCourse(opts: ImportCourseOptions): Promise<ImportRep
           },
         });
 
+        const questionFileAssetIdsByHash = new Map<string, string>();
+
         for (const parsed of plan.parsedQuestions) {
+          let data: QuestionData = parsed.data;
+
+          const matches = plan.questionFileMatches.get(parsed);
+          if (matches !== undefined) {
+            const urlByFilename = new Map<string, string>();
+            for (const match of matches) {
+              let fileAssetId = questionFileAssetIdsByHash.get(match.file.contenthash);
+              if (fileAssetId === undefined) {
+                const upload = questionFileUploadsByHash.get(match.file.contenthash)!;
+                const fileAsset = await tx.fileAsset.create({
+                  data: {
+                    schoolId,
+                    uploaderId: createdById,
+                    key: upload.key,
+                    originalName: match.file.filename,
+                    mimeType: match.file.mimetype ?? 'application/octet-stream',
+                    sizeBytes: match.file.filesize,
+                    status: FileAssetStatus.UPLOADED,
+                  },
+                });
+                fileAssetId = fileAsset.id;
+                questionFileAssetIdsByHash.set(match.file.contenthash, fileAssetId);
+              }
+              urlByFilename.set(match.filename, `/api/files/${fileAssetId}`);
+            }
+
+            const resolved = sanitizeQuestionHtml(
+              parsed.rawPromptHtml,
+              (filename) => urlByFilename.get(filename) ?? null,
+            );
+            data = { ...parsed.data, prompt: resolved.html };
+          }
+
           const question = await tx.question.create({
             data: {
               schoolId,
               bankId: bank.id,
-              type: parsed.data.type,
+              type: data.type,
               name: parsed.name,
-              data: parsed.data as Prisma.InputJsonValue,
+              data: data as Prisma.InputJsonValue,
               version: 1,
               createdById,
             },

@@ -10,6 +10,7 @@ function baseReport(overrides: Partial<ImportReport> = {}): ImportReport {
     lessons: 6,
     blocks: 8,
     files: { count: 2, totalBytes: 1572864 },
+    questionFiles: { count: 0, totalBytes: 0 },
     skippedActivities: [],
     warnings: [],
     quizzes: 1,
@@ -26,6 +27,7 @@ describe('formatReport', () => {
       ],
       warnings: ['первое предупреждение'],
       questions: { imported: 5, skippedByType: { essay: 3, matching: 1 } },
+      questionFiles: { count: 3, totalBytes: 1048576 },
     });
 
     const text = formatReport(report);
@@ -34,6 +36,7 @@ describe('formatReport', () => {
     expect(text).toContain('Модулей: 3, уроков: 6, блоков: 8');
     expect(text).toContain('Файлов: 2 (1.5 МБ)');
     expect(text).toContain('Квизов: 1, вопросов: 5');
+    expect(text).toContain('Картинки вопросов: 3 (1.0 МБ)');
     expect(text).toContain('Пропущено вопросов по типам: essay=3, matching=1');
     expect(text).toContain('Пропущенные активности:');
     expect(text).toContain('- [forum] Обсуждение — не поддерживается');

@@ -74,7 +74,11 @@ export function convertQuestion(raw: RawQuestion): ConvertResult {
     };
   }
 
-  const { html: prompt, hasPluginFiles } = sanitizeQuestionHtml(raw.questiontextHtml);
+  const {
+    html: prompt,
+    hasPluginFiles,
+    unresolvedFiles: pluginFileNames,
+  } = sanitizeQuestionHtml(raw.questiontextHtml);
   const data = buildData(raw, prompt);
 
   const result = questionData.safeParse(data);
@@ -93,6 +97,8 @@ export function convertQuestion(raw: RawQuestion): ConvertResult {
       name: raw.name,
       data: result.data,
       hasPluginFiles,
+      pluginFileNames,
+      rawPromptHtml: raw.questiontextHtml,
     },
   };
 }

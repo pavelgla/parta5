@@ -26,6 +26,9 @@ export function formatReport(report: ImportReport, dryRun = false): string {
   lines.push(`Модулей: ${report.modules}, уроков: ${report.lessons}, блоков: ${report.blocks}`);
   lines.push(`Файлов: ${report.files.count} (${formatMb(report.files.totalBytes)} МБ)`);
   lines.push(`Квизов: ${report.quizzes}, вопросов: ${report.questions.imported}`);
+  lines.push(
+    `Картинки вопросов: ${report.questionFiles.count} (${formatMb(report.questionFiles.totalBytes)} МБ)`,
+  );
 
   const skippedByType = formatSkippedByType(report.questions.skippedByType);
   if (skippedByType) {

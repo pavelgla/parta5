@@ -8,6 +8,7 @@ export interface BackupFileEntry {
   contextid: number;
   component: string;
   filearea: string;
+  itemid: number;
   filename: string;
   filepath: string;
   mimetype: string | null;
@@ -34,6 +35,7 @@ export async function parseFilesManifest(backupDir: string): Promise<BackupFileE
       contextid: Number(file.contextid),
       component: String(file.component),
       filearea: String(file.filearea),
+      itemid: Number(file.itemid ?? 0),
       filename: String(file.filename),
       filepath: String(file.filepath),
       mimetype:

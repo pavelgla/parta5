@@ -33,15 +33,44 @@ const ALLOWED_ATTRIBUTES = {
 };
 
 const PLUGINFILE_MARKER = '@@PLUGINFILE@@';
+const PLUGINFILE_REF_RE = /@@PLUGINFILE@@\/([^"'\s>]+)/g;
 
-export function sanitizeQuestionHtml(html: string): { html: string; hasPluginFiles: boolean } {
+function pluginFileFilename(ref: string): string {
+  const withoutQuery = ref.split('?')[0];
+  try {
+    return decodeURIComponent(withoutQuery);
+  } catch {
+    return withoutQuery;
+  }
+}
+
+export interface SanitizeQuestionHtmlResult {
+  html: string;
+  hasPluginFiles: boolean;
+  unresolvedFiles: string[];
+}
+
+export function sanitizeQuestionHtml(
+  html: string,
+  resolve?: (filename: string) => string | null,
+): SanitizeQuestionHtmlResult {
   const hasPluginFiles = html.includes(PLUGINFILE_MARKER);
-  const withoutPluginfile = hasPluginFiles ? html.split(`${PLUGINFILE_MARKER}/`).join('') : html;
+  const unresolvedFiles: string[] = [];
 
-  const sanitized = sanitizeHtml(withoutPluginfile, {
+  const withResolvedPluginfiles = hasPluginFiles
+    ? html.replace(PLUGINFILE_REF_RE, (_match, ref: string) => {
+        const filename = pluginFileFilename(ref);
+        const resolved = resolve ? resolve(filename) : null;
+        if (resolved) return resolved;
+        unresolvedFiles.push(filename);
+        return ref;
+      })
+    : html;
+
+  const sanitized = sanitizeHtml(withResolvedPluginfiles, {
     allowedTags: ALLOWED_TAGS,
     allowedAttributes: ALLOWED_ATTRIBUTES,
   });
 
-  return { html: sanitized, hasPluginFiles };
+  return { html: sanitized, hasPluginFiles, unresolvedFiles };
 }
