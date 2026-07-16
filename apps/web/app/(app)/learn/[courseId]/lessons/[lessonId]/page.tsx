@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { CompleteLessonButton } from './complete-lesson-button';
 import { BlockTracker } from '@/components/learn/block-tracker';
 import { VideoProgressTracker } from '@/components/learn/video-progress-tracker';
+import { QuizPlayer } from '@/components/learn/quiz-player';
 import { getFileUrl } from '@/lib/file-url';
 
 interface Props {
@@ -166,6 +167,9 @@ function LessonBlock({ type, data }: { type: string; data: Record<string, unknow
   }
   if (type === 'DIVIDER') {
     return <hr className="border-gray-200" />;
+  }
+  if (type === 'QUIZ') {
+    return <QuizPlayer quizId={String(data.quizId ?? '')} title={String(data.title ?? '')} />;
   }
   // Fallback
   return (

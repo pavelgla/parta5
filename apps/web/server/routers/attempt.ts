@@ -62,6 +62,34 @@ function sanitizeAttemptForClient(attempt: {
   };
 }
 
+async function attemptWithAnswers(
+  tx: Prisma.TransactionClient,
+  attempt: {
+    id: string;
+    quizId: string;
+    status: string;
+    startedAt: Date;
+    expiresAt: Date | null;
+    questionsSnapshot: Prisma.JsonValue;
+  },
+) {
+  const responses = await tx.quizResponse.findMany({
+    where: { attemptId: attempt.id },
+    select: { questionId: true, answer: true },
+  });
+  const answerByQuestion = new Map<string, unknown>(
+    responses.map((r) => [r.questionId, r.answer as unknown]),
+  );
+  const base = sanitizeAttemptForClient(attempt);
+  return {
+    ...base,
+    questions: base.questions.map((q) => ({
+      ...q,
+      answer: answerByQuestion.get(q.questionId) ?? null,
+    })),
+  };
+}
+
 async function assertQuizAccess(
   tx: Prisma.TransactionClient,
   quizId: string,
@@ -153,7 +181,64 @@ export const attemptRouter = router({
         });
       });
 
-      return sanitizeAttemptForClient(attempt);
+      return { ...sanitizeAttemptForClient(attempt), serverNow: new Date() };
+    }),
+
+  active: tenantProcedure
+    .input(z.object({ quizId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const schoolId = ctx.schoolId;
+      const userId = ctx.userId;
+      const role = ctx.session.user.role;
+      return withTenant(schoolId, async (tx) => {
+        await assertQuizAccess(tx, input.quizId, userId, role);
+
+        const attempt = await tx.quizAttempt.findFirst({
+          where: { quizId: input.quizId, userId, status: 'IN_PROGRESS' },
+        });
+        if (!attempt || (attempt.expiresAt && attempt.expiresAt <= new Date())) {
+          return null;
+        }
+
+        return { ...(await attemptWithAnswers(tx, attempt)), serverNow: new Date() };
+      });
+    }),
+
+  summary: tenantProcedure
+    .input(z.object({ quizId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const schoolId = ctx.schoolId;
+      const userId = ctx.userId;
+      const role = ctx.session.user.role;
+      return withTenant(schoolId, async (tx) => {
+        const quiz = await tx.quiz.findUnique({
+          where: { id: input.quizId },
+          select: { maxAttempts: true },
+        });
+        if (!quiz) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Quiz not found' });
+        }
+        await assertQuizAccess(tx, input.quizId, userId, role);
+
+        const [attemptsUsed, lastAttempt] = await Promise.all([
+          tx.quizAttempt.count({
+            where: { quizId: input.quizId, userId, status: { in: ['SUBMITTED', 'EXPIRED'] } },
+          }),
+          tx.quizAttempt.findFirst({
+            where: { quizId: input.quizId, userId, status: { in: ['SUBMITTED', 'EXPIRED'] } },
+            orderBy: { submittedAt: 'desc' },
+            select: { score: true, maxScore: true },
+          }),
+        ]);
+
+        return {
+          attemptsUsed,
+          maxAttempts: quiz.maxAttempts,
+          lastScore: lastAttempt
+            ? { score: lastAttempt.score, maxScore: lastAttempt.maxScore }
+            : null,
+        };
+      });
     }),
 
   answer: tenantProcedure
@@ -223,12 +308,17 @@ export const attemptRouter = router({
           throw new TRPCError({ code: 'FORBIDDEN', message: 'Attempt is not in progress' });
         }
 
+        const quiz = await tx.quiz.findUnique({
+          where: { id: attempt.quizId },
+          select: { passingScore: true },
+        });
         const result = await finalizeAttempt(tx, attempt, 'SUBMITTED');
         return {
           attemptId: attempt.id,
           status: 'SUBMITTED' as const,
           score: result.score,
           maxScore: result.maxScore,
+          passingScore: quiz?.passingScore ?? null,
           items: result.items,
         };
       });
@@ -244,25 +334,16 @@ export const attemptRouter = router({
       }
 
       if (attempt.status === 'IN_PROGRESS') {
-        const responses = await tx.quizResponse.findMany({
-          where: { attemptId: attempt.id },
-          select: { questionId: true, answer: true },
-        });
-        const answerByQuestion = new Map(responses.map((r) => [r.questionId, r.answer]));
-        const base = sanitizeAttemptForClient(attempt);
-        return {
-          ...base,
-          questions: base.questions.map((q) => ({
-            ...q,
-            answer: answerByQuestion.get(q.questionId) ?? null,
-          })),
-        };
+        return { ...(await attemptWithAnswers(tx, attempt)), serverNow: new Date() };
       }
 
-      const responses = await tx.quizResponse.findMany({
-        where: { attemptId: attempt.id },
-        select: { questionId: true, answer: true, isCorrect: true, earnedPoints: true },
-      });
+      const [responses, quiz] = await Promise.all([
+        tx.quizResponse.findMany({
+          where: { attemptId: attempt.id },
+          select: { questionId: true, answer: true, isCorrect: true, earnedPoints: true },
+        }),
+        tx.quiz.findUnique({ where: { id: attempt.quizId }, select: { passingScore: true } }),
+      ]);
       const responseByQuestion = new Map(responses.map((r) => [r.questionId, r]));
       const snapshot = attempt.questionsSnapshot as unknown as SnapshotItem[];
 
@@ -271,6 +352,7 @@ export const attemptRouter = router({
         status: attempt.status,
         score: attempt.score,
         maxScore: attempt.maxScore,
+        passingScore: quiz?.passingScore ?? null,
         items: snapshot.map((item) => {
           const response = responseByQuestion.get(item.questionId);
           return {
@@ -278,7 +360,7 @@ export const attemptRouter = router({
             order: item.order,
             points: item.points,
             data: item.data,
-            answer: response?.answer ?? null,
+            answer: (response?.answer as unknown) ?? null,
             isCorrect: response?.isCorrect ?? false,
             earnedPoints: response?.earnedPoints ?? 0,
           };
