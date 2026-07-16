@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { XMLParser } from 'fast-xml-parser';
+import { createXmlParser } from './xml.js';
 
 const NULL_MARKER = '$@NULL@$';
 
@@ -20,7 +20,7 @@ export interface ParsedSection {
 export async function parseSection(backupDir: string, directory: string): Promise<ParsedSection> {
   const xmlPath = path.join(backupDir, directory, 'section.xml');
   const xml = await readFile(xmlPath, 'utf-8');
-  const parser = new XMLParser({ ignoreAttributes: false });
+  const parser = createXmlParser();
   const parsed = parser.parse(xml);
   const section = parsed.section;
 

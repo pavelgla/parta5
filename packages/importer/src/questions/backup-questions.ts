@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { XMLParser } from 'fast-xml-parser';
+import { createXmlParser, parseXmlBool } from '../xml.js';
 import { toArray } from '../manifest.js';
 import { convertQuestion, type RawAnswer, type RawQuestion } from './convert.js';
 import type { ParsedQuestion, QuestionParseResult } from './types.js';
@@ -45,8 +45,8 @@ function toRawQuestion(question: Record<string, unknown>): RawQuestion {
       qtype,
       questiontextHtml,
       defaultgrade,
-      single: Boolean(Number(multichoice?.single ?? 0)),
-      shuffleanswers: Boolean(Number(multichoice?.shuffleanswers ?? 0)),
+      single: parseXmlBool(multichoice?.single),
+      shuffleanswers: parseXmlBool(multichoice?.shuffleanswers),
       answers: toRawAnswers(parseAnswers(plugin)),
     };
   }
@@ -106,7 +106,7 @@ export async function parseBackupQuestions(backupDir: string): Promise<
 > {
   const xmlPath = path.join(backupDir, 'questions.xml');
   const xml = await readFile(xmlPath, 'utf-8');
-  const parser = new XMLParser({ ignoreAttributes: false });
+  const parser = createXmlParser();
   const parsed = parser.parse(xml);
 
   const result: QuestionParseResult = { questions: [], skipped: [] };

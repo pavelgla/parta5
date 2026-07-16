@@ -251,6 +251,13 @@ async function buildLesson(
       for (const skipped of quizCtx.parsed.skipped) {
         warnings.push(`вопрос ${skipped.name} пропущен: ${skipped.reason}`);
       }
+      const withPluginFiles = quizCtx.parsed.questions.filter((q) => q.hasPluginFiles).length;
+      if (withPluginFiles > 0) {
+        warnings.push(
+          `${withPluginFiles} вопрос(ов) содержат встроенные файлы (@@PLUGINFILE@@) — ` +
+            `изображения и вложения внутри вопросов не переносятся в MVP`,
+        );
+      }
     }
     const { parsed } = quizCtx;
 

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { XMLParser } from 'fast-xml-parser';
+import { createXmlParser } from '../xml.js';
 import { sanitizeQuestionHtml } from '../questions/sanitize.js';
 import { nullableString } from '../xml-common.js';
 
@@ -12,7 +12,7 @@ export interface ParsedLabel {
 export async function parseLabel(backupDir: string, directory: string): Promise<ParsedLabel> {
   const xmlPath = path.join(backupDir, directory, 'label.xml');
   const xml = await readFile(xmlPath, 'utf-8');
-  const parser = new XMLParser({ ignoreAttributes: false });
+  const parser = createXmlParser();
   const parsed = parser.parse(xml);
   const label = parsed.activity.label;
 

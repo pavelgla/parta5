@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { XMLParser } from 'fast-xml-parser';
+import { createXmlParser } from './xml.js';
 import { z } from 'zod';
 
 function toArray<T>(x: T | T[] | undefined): T[] {
@@ -39,7 +39,7 @@ export type CourseManifest = z.infer<typeof courseManifest>;
 export async function parseManifest(backupDir: string): Promise<CourseManifest> {
   const xmlPath = path.join(backupDir, 'moodle_backup.xml');
   const xml = await readFile(xmlPath, 'utf-8');
-  const parser = new XMLParser({ ignoreAttributes: false });
+  const parser = createXmlParser();
   const parsed = parser.parse(xml);
 
   const root = parsed.moodle_backup;

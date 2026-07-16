@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { XMLParser } from 'fast-xml-parser';
+import { createXmlParser } from './xml.js';
 
 export interface BackupFileEntry {
   id: number;
@@ -22,7 +22,7 @@ function toArray<T>(x: T | T[] | undefined): T[] {
 export async function parseFilesManifest(backupDir: string): Promise<BackupFileEntry[]> {
   const xmlPath = path.join(backupDir, 'files.xml');
   const xml = await readFile(xmlPath, 'utf-8');
-  const parser = new XMLParser({ ignoreAttributes: false });
+  const parser = createXmlParser();
   const parsed = parser.parse(xml);
 
   const rawFiles = toArray(parsed.files?.file);

@@ -1,13 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { XMLParser } from 'fast-xml-parser';
+import { createXmlParser } from '../xml.js';
 
 export async function getActivityContextId(
   backupDir: string,
   directory: string,
   modulename: string,
 ): Promise<number> {
-  const parser = new XMLParser({ ignoreAttributes: false });
+  const parser = createXmlParser();
 
   const moduleXmlPath = path.join(backupDir, directory, 'module.xml');
   try {
