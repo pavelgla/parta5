@@ -7,66 +7,7 @@ import { SUBJECT_IDS } from '@/lib/subjects';
 import { logEvent } from '../services/learning-events';
 import { assertCanEditCourse } from '../services/authz';
 import { createWithUniqueSlug } from './course-slug';
-
-type ValidationIssue = { path: string; message: string };
-
-type CourseForValidation = {
-  title: string;
-  shortDescription?: string | null;
-  subject?: string | null;
-  gradeLevel?: number | null;
-  coverFileAssetId?: string | null;
-  modules: Array<{
-    id: string;
-    title: string;
-    lessons: Array<{
-      id: string;
-      title: string;
-      blocks: Array<{ id: string }>;
-    }>;
-  }>;
-};
-
-function validateCourse(course: CourseForValidation): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
-
-  if (!course.title?.trim()) {
-    issues.push({ path: 'title', message: 'Укажите название курса' });
-  }
-  if (!course.shortDescription?.trim()) {
-    issues.push({ path: 'shortDescription', message: 'Краткое описание обязательно' });
-  }
-  if (!course.subject) {
-    issues.push({ path: 'subject', message: 'Выберите предмет' });
-  }
-  if (!course.gradeLevel || course.gradeLevel < 5 || course.gradeLevel > 11) {
-    issues.push({ path: 'gradeLevel', message: 'Укажите класс (5–11)' });
-  }
-  if (!course.coverFileAssetId) {
-    issues.push({ path: 'cover', message: 'Загрузите обложку курса' });
-  }
-  if (course.modules.length === 0) {
-    issues.push({ path: 'modules', message: 'Добавьте хотя бы один модуль' });
-  }
-  for (const mod of course.modules) {
-    if (mod.lessons.length === 0) {
-      issues.push({
-        path: `module.${mod.id}.lessons`,
-        message: `Модуль «${mod.title}» не содержит уроков`,
-      });
-    }
-    for (const lesson of mod.lessons) {
-      if (lesson.blocks.length === 0) {
-        issues.push({
-          path: `lesson.${lesson.id}.blocks`,
-          message: `Урок «${lesson.title}» пустой`,
-        });
-      }
-    }
-  }
-
-  return issues;
-}
+import { validateCourse } from './course-validation';
 
 const courseWithModulesInclude = {
   modules: {
@@ -186,11 +127,14 @@ export const courseRouter = router({
     .query(async ({ ctx, input }) => {
       const schoolId = ctx.schoolId;
       return withTenant(schoolId, async (tx) => {
-        const course = await tx.course.findUniqueOrThrow({
-          where: { id: input.id },
-          include: courseWithModulesInclude,
-        });
-        return validateCourse(course);
+        const [course, school] = await Promise.all([
+          tx.course.findUniqueOrThrow({
+            where: { id: input.id },
+            include: courseWithModulesInclude,
+          }),
+          tx.school.findUniqueOrThrow({ where: { id: schoolId }, select: { kind: true } }),
+        ]);
+        return validateCourse(course, school.kind);
       });
     }),
 
@@ -200,11 +144,14 @@ export const courseRouter = router({
       const schoolId = ctx.schoolId;
       const updated = await withTenant(schoolId, async (tx) => {
         await assertCanEditCourse(tx, input.id, ctx.userId, ctx.session.user.role);
-        const course = await tx.course.findUniqueOrThrow({
-          where: { id: input.id },
-          include: courseWithModulesInclude,
-        });
-        const issues = validateCourse(course);
+        const [course, school] = await Promise.all([
+          tx.course.findUniqueOrThrow({
+            where: { id: input.id },
+            include: courseWithModulesInclude,
+          }),
+          tx.school.findUniqueOrThrow({ where: { id: schoolId }, select: { kind: true } }),
+        ]);
+        const issues = validateCourse(course, school.kind);
         if (issues.length > 0) {
           throw new TRPCError({ code: 'BAD_REQUEST', message: JSON.stringify(issues) });
         }

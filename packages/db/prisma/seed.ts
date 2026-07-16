@@ -73,7 +73,7 @@ async function main() {
   const runstart = await prisma.school.upsert({
     where: { slug: 'runstart' },
     update: {},
-    create: { slug: 'runstart', name: 'RunStart — школа бега' },
+    create: { slug: 'runstart', name: 'RunStart — школа бега', kind: 'SCHOOL' },
   });
 
   const rsTeacher = await prisma.user.upsert({

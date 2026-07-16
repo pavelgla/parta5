@@ -83,11 +83,18 @@ enum QuizAttemptStatus {
 // Core models
 // ──────────────────────────────────────────────────────────────
 
+enum SchoolKind {
+  SCHOOL
+  SUPPLEMENTARY
+  VOCATIONAL
+}
+
 model School {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug      String   @unique
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug      String     @unique
   name      String
-  createdAt DateTime @default(now())
+  kind      SchoolKind @default(SCHOOL)
+  createdAt DateTime   @default(now())
 
   users         User[]
   courses       Course[]
