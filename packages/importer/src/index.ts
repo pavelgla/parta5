@@ -1,36 +1,36 @@
-export { extractMbz } from './mbz';
+export { extractMbz } from './mbz.js';
 
-export type { CourseManifest, ManifestActivity, ManifestSection } from './manifest';
-export { courseManifest, manifestActivity, manifestSection, parseManifest } from './manifest';
+export type { CourseManifest, ManifestActivity, ManifestSection } from './manifest.js';
+export { courseManifest, manifestActivity, manifestSection, parseManifest } from './manifest.js';
 
-export type { ParsedSection } from './section';
-export { parseSection } from './section';
+export type { ParsedSection } from './section.js';
+export { parseSection } from './section.js';
 
-export type { BackupFileEntry } from './files';
-export { contentPath, parseFilesManifest } from './files';
+export type { BackupFileEntry } from './files.js';
+export { contentPath, parseFilesManifest } from './files.js';
 
-export type { ParsedQuestion, QuestionParseResult, SkippedQuestion } from './questions/types';
-export { sanitizeQuestionHtml } from './questions/sanitize';
-export type { RawAnswer, RawQuestion } from './questions/convert';
-export { convertQuestion } from './questions/convert';
-export { parseMoodleXml, parseMoodleXmlFile } from './questions/moodle-xml';
-export { parseBackupQuestions } from './questions/backup-questions';
+export type { ParsedQuestion, QuestionParseResult, SkippedQuestion } from './questions/types.js';
+export { sanitizeQuestionHtml } from './questions/sanitize.js';
+export type { RawAnswer, RawQuestion } from './questions/convert.js';
+export { convertQuestion } from './questions/convert.js';
+export { parseMoodleXml, parseMoodleXmlFile } from './questions/moodle-xml.js';
+export { parseBackupQuestions } from './questions/backup-questions.js';
 
-export { slugify } from './translit';
+export { slugify } from './translit.js';
 
-export type { SkippedActivity, ImportReport } from './report';
+export type { SkippedActivity, ImportReport } from './report.js';
 
-export type { ParsedPage } from './activities/page';
-export { parsePage } from './activities/page';
-export type { ParsedLabel } from './activities/label';
-export { parseLabel } from './activities/label';
-export type { ParsedResource } from './activities/resource';
-export { parseResource } from './activities/resource';
-export type { ParsedUrl } from './activities/url';
-export { parseUrl } from './activities/url';
-export { getActivityContextId } from './activities/context';
+export type { ParsedPage } from './activities/page.js';
+export { parsePage } from './activities/page.js';
+export type { ParsedLabel } from './activities/label.js';
+export { parseLabel } from './activities/label.js';
+export type { ParsedResource } from './activities/resource.js';
+export { parseResource } from './activities/resource.js';
+export type { ParsedUrl } from './activities/url.js';
+export { parseUrl } from './activities/url.js';
+export { getActivityContextId } from './activities/context.js';
 
-export type { ImportCourseOptions } from './import-course';
-export { importCourse } from './import-course';
+export type { ImportCourseOptions } from './import-course.js';
+export { importCourse } from './import-course.js';
 
-export { formatReport } from './report-format';
+export { formatReport } from './report-format.js';

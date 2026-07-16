@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { XMLParser } from 'fast-xml-parser';
-import { sanitizeQuestionHtml } from '../questions/sanitize';
-import { nullableString } from '../xml-common';
+import { sanitizeQuestionHtml } from '../questions/sanitize.js';
+import { nullableString } from '../xml-common.js';
 
 export interface ParsedPage {
   name: string;

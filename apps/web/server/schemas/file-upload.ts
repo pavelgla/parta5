@@ -12,6 +12,11 @@ export const ALLOWED_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  // .mbz Moodle backups: gzip or zip archives, browsers report varying types
+  // for the unrecognized extension.
+  'application/octet-stream',
+  'application/gzip',
+  'application/x-gzip',
 ] as const;
 
 export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB

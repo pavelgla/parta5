@@ -12,6 +12,7 @@
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@ffprobe-installer/ffprobe": "^1.4.1",
     "@parta5/db": "workspace:*",
+    "@parta5/importer": "workspace:*",
     "@parta5/storage": "workspace:*",
     "@parta5/video": "workspace:*",
     "bullmq": "^5.0.0",

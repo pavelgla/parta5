@@ -60,6 +60,13 @@ enum VideoAssetStatus {
   FAILED
 }
 
+enum CourseImportStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
 enum QuestionType {
   MULTICHOICE
   TRUEFALSE
@@ -107,6 +114,7 @@ model User {
   questions          Question[]        @relation("QuestionCreator")
   quizzes            Quiz[]            @relation("QuizCreator")
   quizAttempts       QuizAttempt[]     @relation("QuizAttemptUser")
+  courseImports      CourseImport[]    @relation("CourseImportCreator")
 }
 
 model Course {
@@ -132,6 +140,7 @@ model Course {
   modules          Module[]
   enrollments      Enrollment[]
   coverFileAsset   FileAsset?   @relation("CourseCover", fields: [coverFileAssetId], references: [id])
+  imports          CourseImport[]
 
   @@unique([schoolId, slug])
   @@index([schoolId])
@@ -247,9 +256,29 @@ model FileAsset {
 
   uploader      User      @relation(fields: [uploaderId], references: [id])
   coursesAsCover Course[] @relation("CourseCover")
+  courseImports  CourseImport[]
 
   @@index([schoolId])
   @@index([uploaderId])
+}
+
+model CourseImport {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId      String             @db.Uuid
+  fileAssetId   String             @db.Uuid
+  status        CourseImportStatus @default(PENDING)
+  report        Json?
+  error         String?
+  courseId      String?            @db.Uuid
+  createdById   String             @db.Uuid
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  fileAsset FileAsset @relation(fields: [fileAssetId], references: [id], onDelete: Restrict)
+  course    Course?   @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  createdBy User      @relation("CourseImportCreator", fields: [createdById], references: [id])
+
+  @@index([schoolId])
 }
 
 model VideoAsset {

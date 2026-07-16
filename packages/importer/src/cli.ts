@@ -5,9 +5,9 @@ import path from 'node:path';
 import { prisma } from '@parta5/db';
 import { createStorageFromEnv } from '@parta5/storage';
 import type { StorageAdapter } from '@parta5/storage';
-import { extractMbz } from './mbz';
-import { importCourse } from './import-course';
-import { formatReport } from './report-format';
+import { extractMbz } from './mbz.js';
+import { importCourse } from './import-course.js';
+import { formatReport } from './report-format.js';
 
 // Не покрыто unit-тестами — требует живой БД и .mbz файла. E2E-прогон на
 // реальном экспорте PSR выполняется задачей C6.

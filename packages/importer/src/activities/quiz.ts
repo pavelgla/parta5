@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { XMLParser } from 'fast-xml-parser';
-import { toArray } from '../manifest';
-import { sanitizeQuestionHtml } from '../questions/sanitize';
-import { nullableString } from '../xml-common';
+import { toArray } from '../manifest.js';
+import { sanitizeQuestionHtml } from '../questions/sanitize.js';
+import { nullableString } from '../xml-common.js';
 
 export interface QuizQuestionInstance {
   slot: number;

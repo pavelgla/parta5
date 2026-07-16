@@ -1,4 +1,4 @@
-import type { ImportReport } from './report';
+import type { ImportReport } from './report.js';
 
 const MAX_WARNING_LINES = 20;
 

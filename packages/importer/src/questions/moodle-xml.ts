@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { XMLParser } from 'fast-xml-parser';
-import { toArray } from '../manifest';
-import { convertQuestion, type RawQuestion } from './convert';
-import type { QuestionParseResult } from './types';
+import { toArray } from '../manifest.js';
+import { convertQuestion, type RawQuestion } from './convert.js';
+import type { QuestionParseResult } from './types.js';
 
 function textValue(node: unknown): string {
   if (node === undefined || node === null) return '';

@@ -6,7 +6,7 @@ export type {
   ShortanswerQuestionData,
   TruefalseAnswer,
   TruefalseQuestionData,
-} from './schemas';
+} from './schemas.js';
 export {
   multichoiceAnswer,
   multichoiceQuestionData,
@@ -15,7 +15,7 @@ export {
   shortanswerQuestionData,
   truefalseAnswer,
   truefalseQuestionData,
-} from './schemas';
+} from './schemas.js';
 
-export type { AttemptItem, AttemptResult, GradeResult } from './grade';
-export { gradeAttempt, gradeQuestion } from './grade';
+export type { AttemptItem, AttemptResult, GradeResult } from './grade.js';
+export { gradeAttempt, gradeQuestion } from './grade.js';

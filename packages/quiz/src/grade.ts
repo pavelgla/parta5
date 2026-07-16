@@ -1,4 +1,4 @@
-import { multichoiceAnswer, QuestionData, shortanswerAnswer, truefalseAnswer } from './schemas';
+import { multichoiceAnswer, QuestionData, shortanswerAnswer, truefalseAnswer } from './schemas.js';
 
 export interface GradeResult {
   isCorrect: boolean;

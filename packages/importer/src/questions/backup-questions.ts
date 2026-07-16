@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { XMLParser } from 'fast-xml-parser';
-import { toArray } from '../manifest';
-import { convertQuestion, type RawAnswer, type RawQuestion } from './convert';
-import type { ParsedQuestion, QuestionParseResult } from './types';
+import { toArray } from '../manifest.js';
+import { convertQuestion, type RawAnswer, type RawQuestion } from './convert.js';
+import type { ParsedQuestion, QuestionParseResult } from './types.js';
 
 interface BackupAnswer {
   id: number;
@@ -98,9 +98,7 @@ function pickLatestVersion(
   }, undefined);
 }
 
-export async function parseBackupQuestions(
-  backupDir: string,
-): Promise<
+export async function parseBackupQuestions(backupDir: string): Promise<
   QuestionParseResult & {
     byId: Map<number, ParsedQuestion>;
     byEntryId: Map<number, ParsedQuestion>;

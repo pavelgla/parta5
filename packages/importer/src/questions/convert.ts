@@ -1,6 +1,6 @@
 import { questionData, type QuestionData } from '@parta5/quiz';
-import { sanitizeQuestionHtml } from './sanitize';
-import type { ParsedQuestion, SkippedQuestion } from './types';
+import { sanitizeQuestionHtml } from './sanitize.js';
+import type { ParsedQuestion, SkippedQuestion } from './types.js';
 
 export interface RawAnswer {
   text: string;

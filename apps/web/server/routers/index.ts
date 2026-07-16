@@ -10,6 +10,7 @@ import { videoRouter } from './video';
 import { embedRouter } from './embed';
 import { progressRouter } from './progress';
 import { eventsRouter } from './events';
+import { importRouter } from './import';
 
 export const appRouter = router({
   course: courseRouter,
@@ -23,6 +24,7 @@ export const appRouter = router({
   embed: embedRouter,
   progress: progressRouter,
   events: eventsRouter,
+  import: importRouter,
 });
 
 export type AppRouter = typeof appRouter;
