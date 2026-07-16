@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<activity id="13" moduleid="13" modulename="label" contextid="300">
+  <label id="7">
+    <name>Reminder</name>
+    <intro>&lt;p&gt;Don't forget to submit your homework.&lt;/p&gt;</intro>
+    <introformat>1</introformat>
+  </label>
+</activity>

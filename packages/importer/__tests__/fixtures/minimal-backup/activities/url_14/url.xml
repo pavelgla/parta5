@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<activity id="14" moduleid="14" modulename="url" contextid="301">
+  <url id="8">
+    <name>Intro video</name>
+    <intro>$@NULL@$</intro>
+    <introformat>1</introformat>
+    <externalurl>https://www.youtube.com/watch?v=abc123</externalurl>
+    <display>0</display>
+    <timemodified>1704067200</timemodified>
+  </url>
+</activity>

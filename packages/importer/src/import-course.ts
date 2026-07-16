@@ -1,0 +1,364 @@
+import crypto from 'node:crypto';
+import { nanoid } from 'nanoid';
+import type { PrismaClient, Prisma } from '@parta5/db';
+import { prisma as defaultPrisma, FileAssetStatus } from '@parta5/db';
+import type { StorageAdapter } from '@parta5/storage';
+import { buildKey } from '@parta5/storage';
+import { parseManifest, type CourseManifest, type ManifestActivity } from './manifest';
+import { parseSection } from './section';
+import { parseFilesManifest, contentPath, type BackupFileEntry } from './files';
+import { parsePage } from './activities/page';
+import { parseLabel } from './activities/label';
+import { parseResource } from './activities/resource';
+import { parseUrl } from './activities/url';
+import { getActivityContextId } from './activities/context';
+import { slugify } from './translit';
+import type { ImportReport, SkippedActivity } from './report';
+
+const VIDEO_HOSTS = ['youtube.com', 'youtu.be', 'rutube.ru', 'vk.com', 'vkvideo.ru'];
+
+type PlannedBlock =
+  | { kind: 'TEXT'; html: string; text: string }
+  | { kind: 'FILE'; file: BackupFileEntry; displayName: string; key?: string }
+  | { kind: 'VIDEO_EMBED'; url: string };
+
+interface PlannedLesson {
+  title: string;
+  blocks: PlannedBlock[];
+}
+
+interface PlannedModule {
+  title: string;
+  order: number;
+  lessons: PlannedLesson[];
+}
+
+interface ImportPlan {
+  courseTitle: string;
+  courseDescription: string | null;
+  modules: PlannedModule[];
+  skippedActivities: SkippedActivity[];
+  warnings: string[];
+  fileCount: number;
+  fileTotalBytes: number;
+}
+
+function stripTags(html: string): string {
+  return html.replace(/<[^>]*>/g, '').trim();
+}
+
+function isVideoUrl(externalurl: string): boolean {
+  try {
+    const host = new URL(externalurl).hostname.replace(/^www\./, '');
+    return VIDEO_HOSTS.includes(host);
+  } catch {
+    return false;
+  }
+}
+
+async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<ImportPlan> {
+  const filesManifest = await parseFilesManifest(backupDir);
+
+  const warnings: string[] = [];
+  const skippedActivities: SkippedActivity[] = [];
+  let fileCount = 0;
+  let fileTotalBytes = 0;
+
+  const sections = await Promise.all(
+    manifest.sections.map((section) => parseSection(backupDir, section.directory)),
+  );
+
+  const modules: PlannedModule[] = [];
+
+  for (const [index, manifestSection] of manifest.sections.entries()) {
+    const section = sections[index];
+    const activitiesInSection = manifest.activities.filter(
+      (activity) => activity.sectionId === manifestSection.sectionId,
+    );
+
+    const orderedActivities = orderActivitiesBySequence(
+      activitiesInSection,
+      section.sequence,
+      manifestSection.sectionId,
+      warnings,
+    );
+
+    const lessons: PlannedLesson[] = [];
+
+    for (const activity of orderedActivities) {
+      const lesson = await buildLesson(backupDir, activity, filesManifest);
+      if (lesson === null) {
+        skippedActivities.push(skipReasonFor(activity));
+        continue;
+      }
+      lessons.push(lesson.lesson);
+      fileCount += lesson.fileCount;
+      fileTotalBytes += lesson.fileTotalBytes;
+    }
+
+    modules.push({ title: manifestSection.title, order: index, lessons });
+  }
+
+  const firstSummary = sections[0]?.summaryHtml ?? null;
+
+  return {
+    courseTitle: manifest.originalCourseFullname,
+    courseDescription: firstSummary,
+    modules,
+    skippedActivities,
+    warnings,
+    fileCount,
+    fileTotalBytes,
+  };
+}
+
+function orderActivitiesBySequence(
+  activities: ManifestActivity[],
+  sequence: number[],
+  sectionId: number,
+  warnings: string[],
+): ManifestActivity[] {
+  const bySequence: ManifestActivity[] = [];
+  const notInSequence: ManifestActivity[] = [];
+
+  for (const activity of activities) {
+    if (sequence.includes(activity.moduleId)) {
+      bySequence.push(activity);
+    } else {
+      notInSequence.push(activity);
+    }
+  }
+
+  bySequence.sort((a, b) => sequence.indexOf(a.moduleId) - sequence.indexOf(b.moduleId));
+
+  for (const activity of notInSequence) {
+    warnings.push(
+      `Активность "${activity.title}" (moduleId ${activity.moduleId}) не найдена в sequence секции ${sectionId}, добавлена в конец`,
+    );
+  }
+
+  return [...bySequence, ...notInSequence];
+}
+
+function skipReasonFor(activity: ManifestActivity): SkippedActivity {
+  const reason =
+    activity.modulename === 'quiz'
+      ? 'quiz: импорт в следующей задаче'
+      : `Неизвестный тип активности: ${activity.modulename}`;
+  return { modulename: activity.modulename, title: activity.title, reason };
+}
+
+interface BuiltLesson {
+  lesson: PlannedLesson;
+  fileCount: number;
+  fileTotalBytes: number;
+}
+
+async function buildLesson(
+  backupDir: string,
+  activity: ManifestActivity,
+  filesManifest: BackupFileEntry[],
+): Promise<BuiltLesson | null> {
+  if (activity.modulename === 'page') {
+    const page = await parsePage(backupDir, activity.directory);
+    const block: PlannedBlock = {
+      kind: 'TEXT',
+      html: page.contentHtml,
+      text: stripTags(page.contentHtml),
+    };
+    return { lesson: { title: activity.title, blocks: [block] }, fileCount: 0, fileTotalBytes: 0 };
+  }
+
+  if (activity.modulename === 'label') {
+    const label = await parseLabel(backupDir, activity.directory);
+    const html = label.introHtml ?? '';
+    const block: PlannedBlock = { kind: 'TEXT', html, text: stripTags(html) };
+    return { lesson: { title: activity.title, blocks: [block] }, fileCount: 0, fileTotalBytes: 0 };
+  }
+
+  if (activity.modulename === 'resource') {
+    const resource = await parseResource(backupDir, activity.directory);
+    const contextId = await getActivityContextId(backupDir, activity.directory, 'resource');
+    const files = filesManifest.filter(
+      (entry) =>
+        entry.component === 'mod_resource' &&
+        entry.filearea === 'content' &&
+        entry.contextid === contextId,
+    );
+    const blocks: PlannedBlock[] = files.map((file) => ({
+      kind: 'FILE',
+      file,
+      displayName: resource.name,
+    }));
+    const fileTotalBytes = files.reduce((sum, file) => sum + file.filesize, 0);
+    return {
+      lesson: { title: activity.title, blocks },
+      fileCount: files.length,
+      fileTotalBytes,
+    };
+  }
+
+  if (activity.modulename === 'url') {
+    const url = await parseUrl(backupDir, activity.directory);
+    const block: PlannedBlock = isVideoUrl(url.externalurl)
+      ? { kind: 'VIDEO_EMBED', url: url.externalurl }
+      : {
+          kind: 'TEXT',
+          html: `<p><a href="${url.externalurl}">${url.name}</a></p>`,
+          text: url.name,
+        };
+    return { lesson: { title: activity.title, blocks: [block] }, fileCount: 0, fileTotalBytes: 0 };
+  }
+
+  return null;
+}
+
+function buildReport(plan: ImportPlan, courseSlug: string): ImportReport {
+  const lessons = plan.modules.reduce((sum, mod) => sum + mod.lessons.length, 0);
+  const blocks = plan.modules.reduce(
+    (sum, mod) => sum + mod.lessons.reduce((s, lesson) => s + lesson.blocks.length, 0),
+    0,
+  );
+
+  return {
+    courseTitle: plan.courseTitle,
+    courseSlug,
+    modules: plan.modules.length,
+    lessons,
+    blocks,
+    files: { count: plan.fileCount, totalBytes: plan.fileTotalBytes },
+    skippedActivities: plan.skippedActivities,
+    warnings: plan.warnings,
+  };
+}
+
+async function withTenantClient<T>(
+  db: PrismaClient,
+  schoolId: string,
+  fn: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT set_config('app.current_school_id', ${schoolId}, true)`;
+    return fn(tx);
+  });
+}
+
+function blockData(block: PlannedBlock, fileAssetId?: string): Record<string, unknown> {
+  if (block.kind === 'TEXT') return { html: block.html, text: block.text };
+  if (block.kind === 'VIDEO_EMBED') return { url: block.url };
+  return { fileAssetId, displayName: block.displayName };
+}
+
+function blockType(block: PlannedBlock): 'TEXT' | 'FILE' | 'VIDEO_EMBED' {
+  return block.kind;
+}
+
+export interface ImportCourseOptions {
+  backupDir: string;
+  schoolId: string;
+  createdById: string;
+  storage: StorageAdapter;
+  dryRun: boolean;
+  db?: PrismaClient;
+}
+
+export async function importCourse(opts: ImportCourseOptions): Promise<ImportReport> {
+  const { backupDir, schoolId, createdById, storage, dryRun } = opts;
+  const db = opts.db ?? defaultPrisma;
+
+  const manifest = await parseManifest(backupDir);
+  const plan = await buildPlan(backupDir, manifest);
+  const courseSlug = `${slugify(manifest.originalCourseShortname)}-${nanoid(6)}`;
+
+  if (dryRun) {
+    return buildReport(plan, courseSlug);
+  }
+
+  const fileBlocks = plan.modules.flatMap((mod) =>
+    mod.lessons.flatMap((lesson) => lesson.blocks.filter((block) => block.kind === 'FILE')),
+  ) as Array<Extract<PlannedBlock, { kind: 'FILE' }>>;
+
+  const uploadedKeys: string[] = [];
+  for (const block of fileBlocks) {
+    const uuid = crypto.randomUUID();
+    const key = buildKey(schoolId, 'files', uuid, block.file.filename);
+    await storage.putObjectFromPath(
+      key,
+      contentPath(backupDir, block.file.contenthash),
+      block.file.mimetype ?? 'application/octet-stream',
+    );
+    block.key = key;
+    uploadedKeys.push(key);
+  }
+
+  try {
+    return await withTenantClient(db, schoolId, async (tx) => {
+      const course = await tx.course.create({
+        data: {
+          schoolId,
+          createdById,
+          title: plan.courseTitle,
+          description: plan.courseDescription ?? undefined,
+          slug: courseSlug,
+          status: 'DRAFT',
+        },
+      });
+
+      for (const mod of plan.modules) {
+        const createdModule = await tx.module.create({
+          data: { schoolId, courseId: course.id, title: mod.title, order: mod.order },
+        });
+
+        for (const [lessonOrder, lesson] of mod.lessons.entries()) {
+          const createdLesson = await tx.lesson.create({
+            data: {
+              schoolId,
+              moduleId: createdModule.id,
+              title: lesson.title,
+              order: lessonOrder,
+            },
+          });
+
+          for (const [blockOrder, block] of lesson.blocks.entries()) {
+            let fileAssetId: string | undefined;
+            if (block.kind === 'FILE') {
+              const fileAsset = await tx.fileAsset.create({
+                data: {
+                  schoolId,
+                  uploaderId: createdById,
+                  key: block.key!,
+                  originalName: block.file.filename,
+                  mimeType: block.file.mimetype ?? 'application/octet-stream',
+                  sizeBytes: block.file.filesize,
+                  status: FileAssetStatus.UPLOADED,
+                },
+              });
+              fileAssetId = fileAsset.id;
+            }
+
+            await tx.contentBlock.create({
+              data: {
+                schoolId,
+                lessonId: createdLesson.id,
+                type: blockType(block),
+                data: blockData(block, fileAssetId) as Prisma.InputJsonValue,
+                order: blockOrder,
+              },
+            });
+          }
+        }
+      }
+
+      return buildReport(plan, courseSlug);
+    });
+  } catch (err) {
+    for (const key of uploadedKeys) {
+      try {
+        await storage.delete(key);
+      } catch {
+        // best-effort cleanup
+      }
+    }
+    throw err;
+  }
+}

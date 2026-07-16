@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<activity id="11" moduleid="11" modulename="resource" contextid="100">
+  <resource id="6">
+    <name>Course syllabus</name>
+    <intro>$@NULL@$</intro>
+    <introformat>1</introformat>
+    <display>0</display>
+    <revision>1</revision>
+    <timemodified>1704067200</timemodified>
+  </resource>
+</activity>

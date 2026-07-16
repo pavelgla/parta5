@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<activity id="15" moduleid="15" modulename="url" contextid="302">
+  <url id="9">
+    <name>Further reading</name>
+    <intro>$@NULL@$</intro>
+    <introformat>1</introformat>
+    <externalurl>https://example.com/reading</externalurl>
+    <display>0</display>
+    <timemodified>1704067200</timemodified>
+  </url>
+</activity>

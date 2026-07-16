@@ -33,6 +33,27 @@
           <title>Chapter 1 quiz</title>
           <directory>activities/quiz_12</directory>
         </activity>
+        <activity>
+          <moduleid>13</moduleid>
+          <sectionid>3</sectionid>
+          <modulename>label</modulename>
+          <title>Reminder</title>
+          <directory>activities/label_13</directory>
+        </activity>
+        <activity>
+          <moduleid>14</moduleid>
+          <sectionid>3</sectionid>
+          <modulename>url</modulename>
+          <title>Intro video</title>
+          <directory>activities/url_14</directory>
+        </activity>
+        <activity>
+          <moduleid>15</moduleid>
+          <sectionid>3</sectionid>
+          <modulename>url</modulename>
+          <title>Further reading</title>
+          <directory>activities/url_15</directory>
+        </activity>
       </activities>
       <sections>
         <section>
@@ -44,6 +65,11 @@
           <sectionid>2</sectionid>
           <title>Chapter 1</title>
           <directory>sections/section_2</directory>
+        </section>
+        <section>
+          <sectionid>3</sectionid>
+          <title>Extras</title>
+          <directory>sections/section_3</directory>
         </section>
       </sections>
     </contents>

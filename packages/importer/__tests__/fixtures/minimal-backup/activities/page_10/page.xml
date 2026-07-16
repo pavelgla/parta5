@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<activity id="10" moduleid="10" modulename="page" contextid="101">
+  <page id="5">
+    <name>Welcome page</name>
+    <intro>$@NULL@$</intro>
+    <introformat>1</introformat>
+    <content>&lt;p&gt;Welcome to the course.&lt;/p&gt;</content>
+    <contentformat>1</contentformat>
+    <display>5</display>
+    <revision>1</revision>
+    <timemodified>1704067200</timemodified>
+  </page>
+</activity>

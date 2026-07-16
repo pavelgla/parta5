@@ -15,3 +15,20 @@ export type { RawAnswer, RawQuestion } from './questions/convert';
 export { convertQuestion } from './questions/convert';
 export { parseMoodleXml, parseMoodleXmlFile } from './questions/moodle-xml';
 export { parseBackupQuestions } from './questions/backup-questions';
+
+export { slugify } from './translit';
+
+export type { SkippedActivity, ImportReport } from './report';
+
+export type { ParsedPage } from './activities/page';
+export { parsePage } from './activities/page';
+export type { ParsedLabel } from './activities/label';
+export { parseLabel } from './activities/label';
+export type { ParsedResource } from './activities/resource';
+export { parseResource } from './activities/resource';
+export type { ParsedUrl } from './activities/url';
+export { parseUrl } from './activities/url';
+export { getActivityContextId } from './activities/context';
+
+export type { ImportCourseOptions } from './import-course';
+export { importCourse } from './import-course';

@@ -20,7 +20,7 @@ describe('parseManifest', () => {
   it('parses all sections with correct counts and fields', async () => {
     const manifest = await parseManifest(FIXTURE_DIR);
 
-    expect(manifest.sections).toHaveLength(2);
+    expect(manifest.sections).toHaveLength(3);
     expect(manifest.sections[0]).toEqual({
       sectionId: 1,
       title: 'Introduction',
@@ -31,12 +31,17 @@ describe('parseManifest', () => {
       title: 'Chapter 1',
       directory: 'sections/section_2',
     });
+    expect(manifest.sections[2]).toEqual({
+      sectionId: 3,
+      title: 'Extras',
+      directory: 'sections/section_3',
+    });
   });
 
   it('parses all activities with correct counts and fields', async () => {
     const manifest = await parseManifest(FIXTURE_DIR);
 
-    expect(manifest.activities).toHaveLength(3);
+    expect(manifest.activities).toHaveLength(6);
     expect(manifest.activities[0]).toEqual({
       moduleId: 10,
       sectionId: 1,

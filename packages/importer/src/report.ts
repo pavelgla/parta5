@@ -1,0 +1,16 @@
+export interface SkippedActivity {
+  modulename: string;
+  title: string;
+  reason: string;
+}
+
+export interface ImportReport {
+  courseTitle: string;
+  courseSlug: string | null;
+  modules: number;
+  lessons: number;
+  blocks: number;
+  files: { count: number; totalBytes: number };
+  skippedActivities: SkippedActivity[];
+  warnings: string[];
+}
