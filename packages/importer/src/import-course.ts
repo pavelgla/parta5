@@ -370,15 +370,28 @@ function buildReport(plan: ImportPlan, courseSlug: string): ImportReport {
   };
 }
 
+/**
+ * Importing a real course writes thousands of rows in one transaction — the PSR
+ * «Билеты ПДД» course alone is 1000 questions + 998 question images + 50 quizzes,
+ * roughly 3000 statements. Prisma's 5s default aborts that mid-flight, so batch
+ * imports get an explicit, generous budget; atomicity is worth the long tx here,
+ * since a partial course is worse than a slow one.
+ */
+const IMPORT_TX_TIMEOUT_MS = 15 * 60 * 1000;
+const IMPORT_TX_MAX_WAIT_MS = 30 * 1000;
+
 async function withTenantClient<T>(
   db: PrismaClient,
   schoolId: string,
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
-  return db.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT set_config('app.current_school_id', ${schoolId}, true)`;
-    return fn(tx);
-  });
+  return db.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.current_school_id', ${schoolId}, true)`;
+      return fn(tx);
+    },
+    { timeout: IMPORT_TX_TIMEOUT_MS, maxWait: IMPORT_TX_MAX_WAIT_MS },
+  );
 }
 
 type NonQuizBlock = Exclude<PlannedBlock, { kind: 'QUIZ' }>;
