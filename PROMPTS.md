@@ -5,7 +5,7 @@
 **Рабочая папка:** `/home/gpaul/projects/parta5`
 **Запуск:** `./run-prompts.sh` или `./run-prompts.sh 5` (начать с промпта 5)
 
-Скоуп: **Этап A (hardening) + начало Этапа B (квиз)** из `docs/SUPERPLAN.md`.
+Скоуп: **Этап A (hardening) + начало Этапа B (квиз)** — промпты 1–13 (выполнены 2026-07-16), **Этап C (импортер Moodle, задачи C1–C5 + C8)** — промпты 14–20. Из `docs/SUPERPLAN.md`. C6–C7 (экспорт с sel1, батч 106 курсов PSR) — операционные задачи, выполняются под присмотром, не через конвейер.
 Основание: `docs/reviews/2026-07-senior-product-review.md`.
 
 Перед запуском: `docker compose up -d db` (миграции в промптах 4 и 13 требуют живой Postgres), `.env` заполнен.
@@ -347,4 +347,229 @@
 9. Миграция: `docker compose up -d db` сделан снаружи; выполни `pnpm --filter @parta5/db exec prisma migrate dev --name quiz_models`. Затем создай ВТОРУЮ миграцию <timestamp>_quiz_rls/migration.sql вручную: ENABLE + FORCE ROW LEVEL SECURITY + CREATE POLICY school_isolation (USING + WITH CHECK по "schoolId", образец — 20260525213546_add_rls) для таблиц "QuestionBank", "Question", "Quiz", "QuizQuestion", "QuizAttempt", "QuizResponse". Применй `prisma migrate deploy`.
 
 10. Проверка: `pnpm --filter @parta5/db exec prisma validate`, `pnpm --filter @parta5/db exec prisma generate`, `pnpm --filter web exec tsc --noEmit`, `pnpm test` — всё зелёное.
+```
+
+---
+
+## ПРОМПТ 14: Importer-Core — пакет @parta5/importer, распаковка .mbz, манифест
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — монорепо LMS «Парта5»: pnpm workspaces + Turborepo, TypeScript strict, Vitest. Образец устройства пакета — packages/quiz (package.json со scripts test/typecheck, tsconfig, src/, __tests__/).
+
+Задача: создать пакет packages/importer (@parta5/importer) — ядро импорта курсов из Moodle backup (.mbz). В этом промпте: распаковка архива и парсинг манифеста. Без БД и без S3.
+
+1. packages/importer/package.json: name @parta5/importer, private, type module. dependencies: tar, unzipper, fast-xml-parser, zod. devDependencies: typescript, vitest, tsx, @types/unzipper. scripts: test="vitest run", typecheck="tsc --noEmit". tsconfig.json — по образцу packages/quiz.
+
+2. src/mbz.ts — export async function extractMbz(filePath: string, destDir: string): Promise<void>.
+   .mbz бывает двух форматов, различай по магическим байтам первых 4 байт файла:
+   - 0x1f 0x8b → gzip (tar.gz, Moodle 3.1+): распаковать пакетом tar (tar.x({ file, cwd: destDir })).
+   - 0x50 0x4b («PK») → zip (старые Moodle): распаковать пакетом unzipper.
+   Иначе — throw new Error с понятным сообщением. destDir создать через fs.mkdir recursive.
+
+3. src/manifest.ts — парсинг <destDir>/moodle_backup.xml (fast-xml-parser, ignoreAttributes: false).
+   export типы (zod-схемы + z.infer):
+   - ManifestActivity: { moduleId: number, sectionId: number, modulename: string, title: string, directory: string }  // из information/contents/activities/activity
+   - ManifestSection: { sectionId: number, title: string, directory: string }  // из information/contents/sections/section
+   - CourseManifest: { moodleVersion: string, moodleRelease: string, backupDate: number, originalCourseFullname: string, originalCourseShortname: string, sections: ManifestSection[], activities: ManifestActivity[] }
+   export async function parseManifest(backupDir: string): Promise<CourseManifest>.
+   ВАЖНО: fast-xml-parser отдаёт одиночный элемент объектом, а не массивом — сделай хелпер toArray<T>(x): T[] и применяй ко всем спискам. Числа могут прийти строками — приводи через z.coerce.number().
+
+4. src/section.ts — export async function parseSection(backupDir: string, directory: string): Promise<{ id: number, title: string | null, summaryHtml: string | null, sequence: number[] }> — парсит <directory>/section.xml (поля name, summary, sequence — sequence это CSV id модулей; name может быть "$@NULL@$" → null).
+
+5. src/files.ts — парсинг <backupDir>/files.xml:
+   export type BackupFileEntry = { id: number, contenthash: string, contextid: number, component: string, filearea: string, filename: string, filepath: string, mimetype: string | null, filesize: number }
+   export async function parseFilesManifest(backupDir: string): Promise<BackupFileEntry[]> — записи с filename === "." (директории) отфильтровать.
+   export function contentPath(backupDir: string, contenthash: string): string — вернуть <backupDir>/files/<первые 2 символа хэша>/<contenthash>.
+
+6. src/index.ts — реэкспорт всего публичного.
+
+7. Тесты __tests__/: создай статичные фикстуры в __tests__/fixtures/minimal-backup/ — маленькие правдоподобные moodle_backup.xml (2 секции, 3 активности: page, resource, quiz; moodle_release "5.0.6"), section.xml, files.xml (2 файла + 1 запись-директория) и files/<ab>/<hash> с телом "test". Тесты: parseManifest (количества, поля, одиночная активность парсится как массив), parseSection ($@NULL@$ → null, sequence), parseFilesManifest (директории отфильтрованы), contentPath, extractMbz (собери в тесте tar.gz из fixtures через tar.c во временную папку os.tmpdir, распакуй, сравни; и негативный кейс — мусорный файл → throw).
+
+8. Корень: выполни pnpm install (линковка нового пакета). Проверка: pnpm --filter @parta5/importer test, pnpm --filter @parta5/importer typecheck — зелёные. pnpm typecheck по корню тоже.
+```
+
+---
+
+## ПРОМПТ 15: Question-Parsers — questions.xml бэкапа + standalone Moodle XML → схемы @parta5/quiz
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — монорепо LMS «Парта5», TypeScript strict, Vitest. Пакет packages/importer уже существует (распаковка .mbz, парсинг манифеста). Схемы вопросов — packages/quiz/src/schemas.ts: questionData = discriminatedUnion по type из multichoiceQuestionData ({ type: 'MULTICHOICE', prompt, single, shuffleChoices, choices: [{id, text, correct, feedback?}], defaultPoints }), truefalseQuestionData ({ type: 'TRUEFALSE', prompt, correctAnswer, defaultPoints }), shortanswerQuestionData ({ type: 'SHORTANSWER', prompt, acceptedAnswers, caseSensitive, defaultPoints }). Прочитай этот файл перед началом.
+
+Задача: парсеры вопросов Moodle → валидные QuestionData. Два источника: questions.xml внутри .mbz-бэкапа и standalone-экспорт «Moodle XML».
+
+1. В packages/importer добавь dependencies: sanitize-html, @parta5/quiz (workspace:*), devDependencies: @types/sanitize-html. pnpm install.
+
+2. src/questions/sanitize.ts — export function sanitizeQuestionHtml(html: string): { html: string, hasPluginFiles: boolean }.
+   sanitize-html c allowedTags: p, br, b, i, u, strong, em, sub, sup, ul, ol, li, table, thead, tbody, tr, td, th, img, a, span, div, pre, code; allowedAttributes: img → src, alt, width, height; a → href, title; всё остальное режется. hasPluginFiles = html содержит "@@PLUGINFILE@@"; сами вхождения "@@PLUGINFILE@@/" заменить на "" (файлы вопросов в MVP не переносим — фиксируем флагом для отчёта).
+
+3. src/questions/types.ts:
+   export type ParsedQuestion = { name: string, data: QuestionData (из @parta5/quiz), hasPluginFiles: boolean }
+   export type SkippedQuestion = { name: string, moodleType: string, reason: string }
+   export type QuestionParseResult = { questions: ParsedQuestion[], skipped: SkippedQuestion[] }
+
+4. src/questions/convert.ts — общая логика маппинга одного вопроса (уже вынутого из XML в промежуточную форму { name, qtype, questiontextHtml, defaultgrade, single?, shuffleanswers?, usecase?, answers: [{ text, fraction, feedbackHtml? }] }):
+   - multichoice → MULTICHOICE: choices из answers, correct = fraction > 0, id = String(index), single из поля single (Moodle: 1/true = один ответ), shuffleChoices из shuffleanswers, prompt = sanitized questiontext, defaultPoints = defaultgrade > 0 ? defaultgrade : 1.
+   - truefalse → TRUEFALSE: correctAnswer = у какого из двух answers (text "true"/"false") fraction > 0.
+   - shortanswer → SHORTANSWER: acceptedAnswers = тексты answers с fraction > 0 (текст plain, без HTML), caseSensitive = usecase == 1.
+   - прочие qtype (essay, matching, numerical, cloze, ...) → SkippedQuestion с reason "тип не поддерживается в MVP".
+   Каждый результат прогоняй через questionData.parse() — невалидное (например multichoice без единого correct) → skipped c reason из ошибки.
+
+5. src/questions/moodle-xml.ts — export async function parseMoodleXmlFile(filePath): Promise<QuestionParseResult> и parseMoodleXml(xmlString). Формат standalone-экспорта: <quiz><question type="multichoice|truefalse|shortanswer|category|...">, поля <name><text>, <questiontext format="html"><text>, <defaultgrade>, <single>, <shuffleanswers>, <usecase>, <answer fraction="100" format="html"><text>...<feedback><text>. Вопросы type="category" пропускать молча (это разделители категорий). CDATA внутри <text> обрабатывается fast-xml-parser автоматически (cdataPropName не задавай, он вернёт текст).
+
+6. src/questions/backup-questions.ts — export async function parseBackupQuestions(backupDir): Promise<QuestionParseResult & { byId: Map<number, ParsedQuestion> }> — парсит <backupDir>/questions.xml. Поддержи ДВА формата:
+   - Moodle 4.0+ (наш основной, PSR = Moodle 5.0.6): question_categories > question_category (id, name, contextid) > question_bank_entries > question_bank_entry (id) > question_version > question_versions (version) > questions > question (id, name, qtype, questiontext, defaultgrade, plugin_qtype_<type>_question внутри содержит answers > answer (id, answertext, fraction, feedback) и для multichoice — multichoice/single/shuffleanswers, для shortanswer — shortanswer/usecase). Если версий несколько — бери максимальную version.
+   - Legacy (<4.0): question_categories > question_category > questions > question с полями и answers прямо внутри.
+   byId — ключ = id вопроса (для маппинга question_instances квиза в следующем промпте; для 4.0+ добавь в Map и ключ question_bank_entry id тоже, отдельным полем byEntryId).
+   Общий маппинг ответов/типов — через convert.ts, не дублируй.
+
+7. Тесты __tests__/questions/: фикстуры-строки или файлы для standalone Moodle XML (по одному вопросу каждого типа + essay → skipped + category → игнор + multichoice с fraction="50" у двух ответов → single=false ожидание корректности) и для backup questions.xml обоих форматов (минимум по 2 вопроса). Проверяй: точные значения полей QuestionData, санитайз (script-тег вырезан, @@PLUGINFILE@@ → флаг), skipped с причинами, byId/byEntryId.
+
+8. Проверка: pnpm --filter @parta5/importer test, pnpm --filter @parta5/importer typecheck, pnpm typecheck — зелёные.
+```
+
+---
+
+## ПРОМПТ 16: Import-Mapper — структура курса и активности page/label/resource/url → Prisma-блоки
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — монорепо LMS «Парта5»: Prisma + PostgreSQL (RLS-мультитенантность через packages/db withTenant), S3-хранилище packages/storage (StorageAdapter: putObjectFromPath, buildKey(schoolId, assetType, uuid, originalName)), TypeScript strict. Пакет packages/importer уже умеет: extractMbz, parseManifest, parseSection, parseFilesManifest, contentPath, parseBackupQuestions. Прочитай packages/importer/src/index.ts, packages/db/src/with-tenant.ts, packages/storage/src/adapter.ts, apps/web/server/schemas/block-data.ts (формы data контент-блоков) перед началом.
+
+Задача: сервис importCourse — маппинг распакованного бэкапа в сущности Парта5. В этом промпте: курс/модули/уроки + активности mod_page, mod_label, mod_resource, mod_url. mod_quiz — СЛЕДУЮЩИЙ промпт, здесь он попадает в skipped с reason "quiz: импорт в следующей задаче".
+
+1. В packages/importer добавь dependencies: @parta5/db (workspace:*), @parta5/storage (workspace:*), nanoid. pnpm install.
+
+2. src/report.ts:
+   export type SkippedActivity = { modulename: string, title: string, reason: string }
+   export type ImportReport = { courseTitle: string, courseSlug: string | null, modules: number, lessons: number, blocks: number, files: { count: number, totalBytes: number }, skippedActivities: SkippedActivity[], warnings: string[] }
+
+3. src/activities/ — по файлу на тип, каждый парсит activities/<directory>/<mod>.xml:
+   - page.ts: parsePage(backupDir, directory) → { name, contentHtml, introHtml }
+   - label.ts: parseLabel → { name, introHtml }  (intro лейбла — и есть контент)
+   - resource.ts: parseResource → { name, introHtml }  (сами файлы придут из files.xml по contextid активности; contextid возьми из module.xml или из атрибута contextid корневого элемента activity в <mod>.xml — посмотри в фикстурах, он есть в обоих)
+   - url.ts: parseUrl → { name, externalurl, introHtml }
+   HTML контента прогоняй через sanitizeQuestionHtml из src/questions/sanitize.ts (переименовывать не нужно, она универсальная).
+
+4. src/import-course.ts — export async function importCourse(opts): Promise<ImportReport>, opts: { backupDir: string, schoolId: string, createdById: string, storage: StorageAdapter, dryRun: boolean }.
+   Порядок:
+   a) parseManifest; собрать структуру: каждая активность манифеста → будущий урок в своём модуле-секции, порядок уроков внутри секции — по sequence из section.xml (модули не из sequence — в конец, с warning).
+   b) slug курса: транслитерация originalCourseShortname (простая таблица ru→lat в src/translit.ts, export function slugify(s): string — латиница/цифры/дефисы, lowercase) + '-' + nanoid(6) — как в apps/web/server/routers/course.ts (посмотри стиль).
+   c) Файлы mod_resource: entries из files.xml с component "mod_resource", filearea "content", contextid активности; НЕ в транзакции: для каждого uuid = crypto.randomUUID(), key = buildKey(schoolId, 'files', uuid, filename), storage.putObjectFromPath(key, contentPath(...), mimetype ?? 'application/octet-stream'). Собери массив загруженных key для отката.
+   d) withTenant(schoolId, tx): создать Course (status DRAFT, title = fullname, description из summary первой "general"-секции если есть), Module на каждую секцию (order по порядку), Lesson на активность, ContentBlock'и:
+      - page → TEXT { html, text: html без тегов (регэксп + trim) }, order 0; если introHtml непустой — CALLOUT перед ним не надо, просто игнор intro.
+      - label → TEXT из introHtml.
+      - resource → FileAsset (schoolId, uploaderId=createdById, key, originalName=filename, mimeType, sizeBytes, status READY) + FILE-блок { fileAssetId, displayName: name }. Несколько файлов → несколько блоков.
+      - url → если хост youtube.com/youtu.be/rutube.ru/vk.com/vkvideo.ru → VIDEO_EMBED { url: externalurl }, иначе TEXT с <p><a href=...>name</a></p>.
+      - модуль без известного маппинга → skippedActivities, урок НЕ создавать.
+   e) При ошибке транзакции — best-effort удаление загруженных key (storage.delete в try/catch), затем rethrow.
+   f) dryRun: true — шаги c/d/e пропустить, но report заполнить полностью (files.count/totalBytes из files.xml, projected counts, skipped).
+   Функция должна принимать prisma-клиент опционально (opts.db?: PrismaClient) для тестируемости, по умолчанию — import { prisma, withTenant } из @parta5/db.
+
+5. Тесты __tests__/import-course.test.ts: расширь fixtures/minimal-backup до полного набора (activities/page_*/page.xml + module.xml, label, resource + files.xml с contextid, url с youtube-ссылкой и обычной ссылкой, quiz → ожидаем skipped). Тестируй dryRun-путь целиком (report: counts, totalBytes, skipped quiz) c фейковым StorageAdapter (in-memory, записывает вызовы) — БД не нужна. Отдельный тест slugify (кириллица «Охрана труда» → "ohrana-truda").
+
+6. Проверка: pnpm --filter @parta5/importer test, typecheck пакета и корня — зелёные.
+```
+
+---
+
+## ПРОМПТ 17: Import-Quiz — mod_quiz → Quiz/QuestionBank/Question + блок QUIZ
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — монорепо LMS «Парта5»: Prisma + PostgreSQL 16 c RLS (образец политик — packages/db/prisma/migrations/20260525213546_add_rls/migration.sql), TypeScript strict. Модели квизов уже есть в packages/db/prisma/schema.prisma (Quiz, QuestionBank, Question, QuizQuestion — прочитай их), парсер вопросов бэкапа — packages/importer/src/questions/backup-questions.ts (parseBackupQuestions → { questions, skipped, byId, byEntryId }), сервис импорта — packages/importer/src/import-course.ts (mod_quiz сейчас в skipped). Требуется живой Postgres: docker compose up -d db уже сделан снаружи.
+
+Задача: импорт mod_quiz и новый тип контент-блока QUIZ.
+
+1. packages/db/prisma/schema.prisma: в enum ContentBlockType добавь значение QUIZ (в конец). Выполни pnpm --filter @parta5/db exec prisma migrate dev --name add_quiz_block_type (PG16 позволяет ALTER TYPE ADD VALUE в транзакции). prisma generate.
+
+2. apps/web/server/schemas/block-data.ts: добавь QuizData ({ type: literal 'QUIZ', data: { quizId: z.string().uuid(), title: z.string() } }), включи в BLOCK_TYPES, blockDataSchemas и дискриминированный union — по образцу существующих.
+
+3. apps/web/components/block-editor/: найди места, где перечислены типы блоков (палитра добавления, рендер), и добавь QUIZ-ветку: карточка-заглушка «Тест: {title}» с бейджем «прохождение — скоро» (UI прохождения квиза — этап B6, здесь только отображение). В палитру создания QUIZ НЕ добавляй — блок создаётся только импортером (комментарий об этом в коде).
+
+4. packages/importer/src/activities/quiz.ts — parseQuiz(backupDir, directory) → { name, introHtml, timelimit: number (сек, 0 = нет), grade: number, attempts: number (0 = безлимит), questionInstances: Array<{ slot: number, questionbankentryid?: number, questionid?: number, maxmark: number }> }. В Moodle 4+ quiz.xml содержит question_instances > question_instance c reference на question_bank_entry (questionbankentryid внутри question_reference); в legacy — прямой questionid. Поддержи оба.
+
+5. packages/importer/src/import-course.ts — убери mod_quiz из skipped, добавь ветку:
+   a) Один раз на импорт (лениво, при первом квизе): parseBackupQuestions; создать QuestionBank { name: "Импорт: " + originalCourseShortname, schoolId, createdById }; для КАЖДОГО успешно распарсенного вопроса — Question { bankId, type: data.type, name, data: data as Json, version 1 }. Сохрани Map исходный id/entryId → созданный Question.id. Вопросы skipped — в report.warnings ("вопрос X пропущен: причина").
+   b) На каждый mod_quiz: Quiz { schoolId, title: name, description: sanitized introHtml или null, timeLimitSeconds: timelimit > 0 ? timelimit : null, maxAttempts: attempts > 0 ? attempts : null, passingScore null, createdById }; QuizQuestion на каждый question_instance, который нашёлся в Map (order = slot, points = maxmark; не нашёлся → warning); Lesson + ContentBlock { type QUIZ, data: { quizId, title: name } }.
+   c) В ImportReport добавь поля quizzes: number и questions: { imported: number, skippedByType: Record<string, number> }.
+   d) dryRun: вопросы парсить и считать, в БД не писать.
+
+6. Тесты: расширь фикстуру minimal-backup — activities/quiz_*/quiz.xml (формат 4+, 2 question_instances) + questions.xml (совпадающие question_bank_entry id: 1 multichoice + 1 essay → пропуск). dryRun-тест: report.quizzes === 1, questions.imported === 1, skippedByType.essay === 1. Юнит parseQuiz на оба формата reference.
+
+7. Проверка: pnpm --filter @parta5/db exec prisma validate, pnpm --filter @parta5/importer test, pnpm --filter web exec tsc --noEmit, pnpm typecheck, pnpm test — всё зелёное.
+```
+
+---
+
+## ПРОМПТ 18: Import-CLI — parta5-import с dry-run отчётом
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — монорепо LMS «Парта5», TypeScript strict. Пакет packages/importer готов: extractMbz, importCourse({ backupDir, schoolId, createdById, storage, dryRun }) → ImportReport (поля посмотри в src/report.ts), createStorageFromEnv из @parta5/storage, prisma из @parta5/db.
+
+Задача: CLI-обёртка для импорта .mbz с локальной машины.
+
+1. packages/importer/src/cli.ts — точка входа (парсинг args руками через util.parseArgs из node:util, без новых зависимостей):
+   parta5-import --file <path.mbz> --school <slug> --user <email> [--dry-run] [--keep-temp]
+   Поток: валидация аргументов (нет --file → usage и exit 1) → prisma: найти School по slug и User по email (нет → понятная ошибка, exit 1; user.schoolId !== school.id → ошибка) → mkdtemp в os.tmpdir → extractMbz → importCourse (storage: createStorageFromEnv() если не dry-run; при dry-run передай заглушку, бросающую при любом вызове — писать в S3 dry-run не должен) → печать отчёта → cleanup tmp (кроме --keep-temp) → exit 0; любая ошибка → лог + exit 1.
+
+2. src/report-format.ts — export function formatReport(r: ImportReport): string. Человекочитаемо, на русском:
+   строки «Курс: …», «Модулей: N, уроков: N, блоков: N», «Файлов: N (X.Х МБ)», «Квизов: N, вопросов: N», «Пропущено вопросов по типам: essay=3, matching=1», секция «Пропущенные активности:» списком «- [modulename] title — reason», секция «Предупреждения:» (не больше 20 строк, дальше «… и ещё K»). Для dry-run — заголовок «DRY-RUN: изменения НЕ применены».
+
+3. packages/importer/package.json: сборки у пакета нет, поэтому bin-поле НЕ добавляй — добавь script "import:run": "tsx src/cli.ts". Запуск: pnpm --filter @parta5/importer import:run -- --file x.mbz --school demo --user teacher@demo.ru --dry-run.
+
+4. env: cli читает DATABASE_URL и S3-переменные процесса; в начале cli.ts подгрузи dotenv НЕ надо (нет такой зависимости) — вместо этого README: запускать из корня c env, пример: env $(grep -v '^#' .env | xargs) pnpm --filter @parta5/importer import:run -- ...
+
+5. packages/importer/README.md — короткая справка: назначение, оба режима, пример dry-run отчёта, ограничения MVP (типы вопросов multichoice/truefalse/shortanswer; forum/assign/scorm и файлы внутри HTML вопросов — пропускаются с фиксацией в отчёте).
+
+6. Тесты: __tests__/report-format.test.ts — formatReport на фиктивном отчёте (обычный и dry-run, обрезка warnings на 20). CLI-поток руками не тестируем (нужны БД+файл) — пометь комментарием, что e2e-прогон делается задачей C6 на реальном экспорте PSR.
+
+7. Проверка: pnpm --filter @parta5/importer test, typecheck пакета и корня, pnpm test — зелёные.
+```
+
+---
+
+## ПРОМПТ 19: Import-Job — worker-джоб course-import + web UI загрузки .mbz
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — монорепо LMS «Парта5»: Next.js 15 App Router + tRPC v11 (роутеры apps/web/server/routers/, процедуры teacherProcedure/protectedProcedure в apps/web/server/trpc/init.ts), Prisma + RLS (образец политики — packages/db/prisma/migrations/20260525213546_add_rls/migration.sql), BullMQ-воркер apps/web… нет: apps/worker/src/index.ts (очередь video-transcode — посмотри устройство: Worker, concurrency, retry). Пакет packages/importer: extractMbz + importCourse. Файлы грузятся через существующий presign-флоу FileAsset (посмотри apps/web/server/routers/file.ts и страницу, где он используется). Postgres поднят снаружи (docker compose up -d db).
+
+Задача: асинхронный импорт .mbz через воркер + страница загрузки.
+
+1. Prisma: model CourseImport { id uuid pk, schoolId uuid, fileAssetId uuid → FileAsset (Restrict), status enum CourseImportStatus { PENDING RUNNING DONE FAILED } default PENDING, report Json?, error String?, courseId uuid? → Course (SetNull), createdById uuid → User, createdAt, updatedAt } + обратные relations + @@index([schoolId]). Миграция pnpm --filter @parta5/db exec prisma migrate dev --name course_import. Вторая миграция руками <timestamp>_course_import_rls/migration.sql: ENABLE + FORCE RLS + POLICY school_isolation по образцу; prisma migrate deploy; generate.
+
+2. apps/worker: очередь 'course-import'. jobs/import-course.ts: по jobId данные { courseImportId, schoolId } → пометить RUNNING → скачать mbz из S3 (createStorageFromEnv().getObjectStream по key FileAsset'а → временный файл через pipeline) → extractMbz → importCourse (dryRun: false, createdById из CourseImport) → DONE + report + courseId → cleanup tmp. Ошибка → FAILED + error (message, без стека). Все обновления CourseImport — через withTenant(schoolId). В index.ts — второй Worker c concurrency 1 и lockDuration/timeout с запасом (импорт долгий: lockDuration 10 минут, maxStalledCount 1); настройки retry как у video-transcode НЕ копируй — attempts 1 (повторный прогон импорта создаст дубль курса; комментарий об этом).
+
+3. apps/web/server/routers/import.ts (подключи в корневой роутер):
+   - create: teacherProcedure, input { fileAssetId } → проверить FileAsset принадлежит школе и mimeType из белого списка (application/octet-stream, application/gzip, application/x-gzip, application/zip — .mbz отдаётся по-разному) → создать CourseImport + enqueue в 'course-import' (Queue из bullmq, соединение — как в video.ts продьюсере) → вернуть id.
+   - byId: teacherProcedure, input { id } → CourseImport (status, report, error, courseId).
+   - list: teacherProcedure → последние 20 по createdAt desc.
+
+4. apps/web/app/(app)/courses/import/page.tsx (+ клиентский компонент): зона выбора .mbz-файла → аплоад существующим presign-флоу → кнопка «Импортировать» → import.create → поллинг import.byId каждые 2с пока PENDING/RUNNING → по DONE показать отчёт (counts, квизы/вопросы, списки пропущенного и предупреждений из report) и ссылку на курс /courses/<courseId>; по FAILED — error. Ссылка на страницу — с /courses (кнопка «Импорт из Moodle» рядом с созданием курса, только для teacher/admin — посмотри как там скрываются учительские элементы). Стиль — как соседние страницы, без новых UI-библиотек.
+
+5. Тесты: unit роутера import.create (мок prisma + мок Queue: неверный mimeType → TRPCError BAD_REQUEST; чужой fileAsset → NOT_FOUND) — рядом с существующими __tests__ в apps/web. Playwright e2e НЕ добавляй (нужен реальный .mbz — задача C6).
+
+6. Проверка: pnpm --filter @parta5/db exec prisma validate, pnpm --filter web exec tsc --noEmit, pnpm --filter @parta5/worker exec tsc --noEmit (или как называется его typecheck — посмотри package.json), pnpm test — зелёные.
+```
+
+---
+
+## ПРОМПТ 20: Publish-Validation — subject/gradeLevel/cover опциональны для организаций ДПО
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — монорепо LMS «Парта5»: Next.js 15 + tRPC v11 + Prisma + PostgreSQL (docker compose up -d db сделан снаружи), TypeScript strict, Vitest.
+
+Контекст: validateCourse в apps/web/server/routers/course.ts жёстко требует subject, gradeLevel 5–11 и обложку — курсы дополнительного профобразования (импорт из Moodle, пилот ПрофСпецРесурс) под школьную модель не подходят и не могут быть опубликованы.
+
+Задача: тип организации у School и мягкая publish-валидация для не-школ.
+
+1. packages/db/prisma/schema.prisma: enum SchoolKind { SCHOOL SUPPLEMENTARY VOCATIONAL } и поле kind SchoolKind @default(SCHOOL) в model School. Миграция pnpm --filter @parta5/db exec prisma migrate dev --name school_kind; prisma generate.
+
+2. apps/web/server/routers/course.ts: validateCourse принимает вторым аргументом kind: SchoolKind. Правила:
+   - kind === 'SCHOOL': поведение как сейчас (subject, gradeLevel 5–11, cover обязательны).
+   - иначе: subject/gradeLevel/cover НЕ обязательны (если gradeLevel указан — валидируй диапазон 5–11 как и раньше); title/shortDescription/непустые модули-уроки-блоки — обязательны для всех.
+   Вызов: в publish-процедуре школа текущего пользователя уже доступна (или дочитай select kind у School по ctx.schoolId). Обнови все места вызова validateCourse.
+
+3. packages/db/prisma/seed.ts: демо-школе явно kind: 'SCHOOL' (поведение сида не меняется).
+
+4. Тесты: в существующий файл тестов курса/валидации (найди в apps/web/__tests__) добавь юнит-тесты validateCourse: SCHOOL — ошибки по subject/gradeLevel/cover есть; VOCATIONAL — их нет, но title/пустые модули по-прежнему дают ошибки; VOCATIONAL c gradeLevel 3 — ошибка диапазона.
+
+5. Проверка: pnpm --filter @parta5/db exec prisma validate, pnpm --filter web exec tsc --noEmit, pnpm test — зелёные.
 ```

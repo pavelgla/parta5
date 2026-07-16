@@ -60,6 +60,13 @@ PROMPTS=(
   "B1|docs(adr): ADR-004 assessment data model"
   "B2|feat(quiz): @parta5/quiz package — schemas + auto-grade"
   "B3|feat(db): quiz Prisma models + migration + RLS"
+  "C1|feat(importer): @parta5/importer — mbz extraction + backup manifest parsers"
+  "C2|feat(importer): question parsers — backup questions.xml + Moodle XML"
+  "C3a|feat(importer): importCourse — structure + page/label/resource/url blocks"
+  "C3b|feat(importer): mod_quiz import + QUIZ content block type"
+  "C4|feat(importer): parta5-import CLI with dry-run report"
+  "C5|feat(import): course-import worker job + mbz upload UI"
+  "C8|feat(course): school kind + relaxed publish validation for non-schools"
 )
 
 TOTAL=${#PROMPTS[@]}
