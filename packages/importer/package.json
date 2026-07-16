@@ -9,7 +9,8 @@
   },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "import:run": "tsx src/cli.ts"
   },
   "dependencies": {
     "tar": "^7.0.0",

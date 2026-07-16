@@ -32,3 +32,5 @@ export { getActivityContextId } from './activities/context';
 
 export type { ImportCourseOptions } from './import-course';
 export { importCourse } from './import-course';
+
+export { formatReport } from './report-format';
