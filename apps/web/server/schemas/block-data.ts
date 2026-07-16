@@ -96,6 +96,14 @@ const EmbedIframeData = z.object({
   }),
 });
 
+const QuizData = z.object({
+  type: z.literal('QUIZ'),
+  data: z.object({
+    quizId: z.string().uuid(),
+    title: z.string(),
+  }),
+});
+
 export const BlockDataSchema = z.discriminatedUnion('type', [
   HeadingData,
   TextData,
@@ -109,6 +117,7 @@ export const BlockDataSchema = z.discriminatedUnion('type', [
   QuoteData,
   DividerData,
   EmbedIframeData,
+  QuizData,
 ]);
 
 export type BlockDataInput = z.infer<typeof BlockDataSchema>;
@@ -126,6 +135,7 @@ export const BLOCK_TYPES = [
   'QUOTE',
   'DIVIDER',
   'EMBED_IFRAME',
+  'QUIZ',
 ] as const;
 
 export type BlockType = (typeof BLOCK_TYPES)[number];
@@ -146,6 +156,7 @@ const blockDataSchemaByType: Record<BlockType, z.ZodTypeAny> = {
   QUOTE: QuoteData.shape.data,
   DIVIDER: DividerData.shape.data,
   EMBED_IFRAME: EmbedIframeData.shape.data,
+  QUIZ: QuizData.shape.data,
 };
 
 export function parseBlockData(type: BlockType, data: unknown): Record<string, unknown> {

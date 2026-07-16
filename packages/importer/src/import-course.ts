@@ -11,16 +11,33 @@ import { parsePage } from './activities/page';
 import { parseLabel } from './activities/label';
 import { parseResource } from './activities/resource';
 import { parseUrl } from './activities/url';
+import { parseQuiz } from './activities/quiz';
 import { getActivityContextId } from './activities/context';
+import { parseBackupQuestions } from './questions/backup-questions';
+import type { ParsedQuestion, SkippedQuestion } from './questions/types';
 import { slugify } from './translit';
 import type { ImportReport, SkippedActivity } from './report';
 
 const VIDEO_HOSTS = ['youtube.com', 'youtu.be', 'rutube.ru', 'vk.com', 'vkvideo.ru'];
 
+interface MatchedQuizInstance {
+  slot: number;
+  maxmark: number;
+  questionIndex: number;
+}
+
 type PlannedBlock =
   | { kind: 'TEXT'; html: string; text: string }
   | { kind: 'FILE'; file: BackupFileEntry; displayName: string; key?: string }
-  | { kind: 'VIDEO_EMBED'; url: string };
+  | { kind: 'VIDEO_EMBED'; url: string }
+  | {
+      kind: 'QUIZ';
+      quizName: string;
+      introHtml: string | null;
+      timelimit: number;
+      attempts: number;
+      matchedInstances: MatchedQuizInstance[];
+    };
 
 interface PlannedLesson {
   title: string;
@@ -41,6 +58,18 @@ interface ImportPlan {
   warnings: string[];
   fileCount: number;
   fileTotalBytes: number;
+  quizzes: number;
+  parsedQuestions: ParsedQuestion[];
+  skippedQuestions: SkippedQuestion[];
+}
+
+type ParsedQuestionsResult = Awaited<ReturnType<typeof parseBackupQuestions>>;
+
+// Parsed lazily — only if the backup actually contains a quiz — and shared
+// across every quiz activity in the backup so questions.xml is read once.
+interface QuizContext {
+  parsed: ParsedQuestionsResult | null;
+  quizCount: number;
 }
 
 function stripTags(html: string): string {
@@ -63,6 +92,7 @@ async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<I
   const skippedActivities: SkippedActivity[] = [];
   let fileCount = 0;
   let fileTotalBytes = 0;
+  const quizCtx: QuizContext = { parsed: null, quizCount: 0 };
 
   const sections = await Promise.all(
     manifest.sections.map((section) => parseSection(backupDir, section.directory)),
@@ -86,7 +116,7 @@ async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<I
     const lessons: PlannedLesson[] = [];
 
     for (const activity of orderedActivities) {
-      const lesson = await buildLesson(backupDir, activity, filesManifest);
+      const lesson = await buildLesson(backupDir, activity, filesManifest, warnings, quizCtx);
       if (lesson === null) {
         skippedActivities.push(skipReasonFor(activity));
         continue;
@@ -109,6 +139,9 @@ async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<I
     warnings,
     fileCount,
     fileTotalBytes,
+    quizzes: quizCtx.quizCount,
+    parsedQuestions: quizCtx.parsed?.questions ?? [],
+    skippedQuestions: quizCtx.parsed?.skipped ?? [],
   };
 }
 
@@ -141,11 +174,11 @@ function orderActivitiesBySequence(
 }
 
 function skipReasonFor(activity: ManifestActivity): SkippedActivity {
-  const reason =
-    activity.modulename === 'quiz'
-      ? 'quiz: импорт в следующей задаче'
-      : `Неизвестный тип активности: ${activity.modulename}`;
-  return { modulename: activity.modulename, title: activity.title, reason };
+  return {
+    modulename: activity.modulename,
+    title: activity.title,
+    reason: `Неизвестный тип активности: ${activity.modulename}`,
+  };
 }
 
 interface BuiltLesson {
@@ -158,6 +191,8 @@ async function buildLesson(
   backupDir: string,
   activity: ManifestActivity,
   filesManifest: BackupFileEntry[],
+  warnings: string[],
+  quizCtx: QuizContext,
 ): Promise<BuiltLesson | null> {
   if (activity.modulename === 'page') {
     const page = await parsePage(backupDir, activity.directory);
@@ -210,6 +245,47 @@ async function buildLesson(
     return { lesson: { title: activity.title, blocks: [block] }, fileCount: 0, fileTotalBytes: 0 };
   }
 
+  if (activity.modulename === 'quiz') {
+    if (quizCtx.parsed === null) {
+      quizCtx.parsed = await parseBackupQuestions(backupDir);
+      for (const skipped of quizCtx.parsed.skipped) {
+        warnings.push(`вопрос ${skipped.name} пропущен: ${skipped.reason}`);
+      }
+    }
+    const { parsed } = quizCtx;
+
+    const quiz = await parseQuiz(backupDir, activity.directory);
+    const matchedInstances: MatchedQuizInstance[] = [];
+    for (const instance of quiz.questionInstances) {
+      const matched =
+        instance.questionbankentryid !== undefined
+          ? parsed.byEntryId.get(instance.questionbankentryid)
+          : parsed.byId.get(instance.questionid!);
+      if (matched === undefined) {
+        warnings.push(
+          `Квиз "${quiz.name}": вопрос для question_instance (slot ${instance.slot}) не найден, пропущен`,
+        );
+        continue;
+      }
+      matchedInstances.push({
+        slot: instance.slot,
+        maxmark: instance.maxmark,
+        questionIndex: parsed.questions.indexOf(matched),
+      });
+    }
+
+    quizCtx.quizCount += 1;
+    const block: PlannedBlock = {
+      kind: 'QUIZ',
+      quizName: quiz.name,
+      introHtml: quiz.introHtml,
+      timelimit: quiz.timelimit,
+      attempts: quiz.attempts,
+      matchedInstances,
+    };
+    return { lesson: { title: activity.title, blocks: [block] }, fileCount: 0, fileTotalBytes: 0 };
+  }
+
   return null;
 }
 
@@ -220,6 +296,11 @@ function buildReport(plan: ImportPlan, courseSlug: string): ImportReport {
     0,
   );
 
+  const skippedByType: Record<string, number> = {};
+  for (const skipped of plan.skippedQuestions) {
+    skippedByType[skipped.moodleType] = (skippedByType[skipped.moodleType] ?? 0) + 1;
+  }
+
   return {
     courseTitle: plan.courseTitle,
     courseSlug,
@@ -229,6 +310,8 @@ function buildReport(plan: ImportPlan, courseSlug: string): ImportReport {
     files: { count: plan.fileCount, totalBytes: plan.fileTotalBytes },
     skippedActivities: plan.skippedActivities,
     warnings: plan.warnings,
+    quizzes: plan.quizzes,
+    questions: { imported: plan.parsedQuestions.length, skippedByType },
   };
 }
 
@@ -243,13 +326,15 @@ async function withTenantClient<T>(
   });
 }
 
-function blockData(block: PlannedBlock, fileAssetId?: string): Record<string, unknown> {
+type NonQuizBlock = Exclude<PlannedBlock, { kind: 'QUIZ' }>;
+
+function blockData(block: NonQuizBlock, fileAssetId?: string): Record<string, unknown> {
   if (block.kind === 'TEXT') return { html: block.html, text: block.text };
   if (block.kind === 'VIDEO_EMBED') return { url: block.url };
   return { fileAssetId, displayName: block.displayName };
 }
 
-function blockType(block: PlannedBlock): 'TEXT' | 'FILE' | 'VIDEO_EMBED' {
+function blockType(block: NonQuizBlock): 'TEXT' | 'FILE' | 'VIDEO_EMBED' {
   return block.kind;
 }
 
@@ -304,6 +389,32 @@ export async function importCourse(opts: ImportCourseOptions): Promise<ImportRep
         },
       });
 
+      const createdQuestionIds: string[] = [];
+      if (plan.quizzes > 0) {
+        const bank = await tx.questionBank.create({
+          data: {
+            schoolId,
+            name: `Импорт: ${manifest.originalCourseShortname}`,
+            createdById,
+          },
+        });
+
+        for (const parsed of plan.parsedQuestions) {
+          const question = await tx.question.create({
+            data: {
+              schoolId,
+              bankId: bank.id,
+              type: parsed.data.type,
+              name: parsed.name,
+              data: parsed.data as Prisma.InputJsonValue,
+              version: 1,
+              createdById,
+            },
+          });
+          createdQuestionIds.push(question.id);
+        }
+      }
+
       for (const mod of plan.modules) {
         const createdModule = await tx.module.create({
           data: { schoolId, courseId: course.id, title: mod.title, order: mod.order },
@@ -320,6 +431,43 @@ export async function importCourse(opts: ImportCourseOptions): Promise<ImportRep
           });
 
           for (const [blockOrder, block] of lesson.blocks.entries()) {
+            if (block.kind === 'QUIZ') {
+              const quiz = await tx.quiz.create({
+                data: {
+                  schoolId,
+                  title: block.quizName,
+                  description: block.introHtml ?? undefined,
+                  timeLimitSeconds: block.timelimit > 0 ? block.timelimit : null,
+                  maxAttempts: block.attempts > 0 ? block.attempts : null,
+                  passingScore: null,
+                  createdById,
+                },
+              });
+
+              for (const instance of block.matchedInstances) {
+                await tx.quizQuestion.create({
+                  data: {
+                    schoolId,
+                    quizId: quiz.id,
+                    questionId: createdQuestionIds[instance.questionIndex],
+                    order: instance.slot,
+                    points: instance.maxmark,
+                  },
+                });
+              }
+
+              await tx.contentBlock.create({
+                data: {
+                  schoolId,
+                  lessonId: createdLesson.id,
+                  type: 'QUIZ',
+                  data: { quizId: quiz.id, title: block.quizName } as Prisma.InputJsonValue,
+                  order: blockOrder,
+                },
+              });
+              continue;
+            }
+
             let fileAssetId: string | undefined;
             if (block.kind === 'FILE') {
               const fileAsset = await tx.fileAsset.create({

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<activity id="12" moduleid="12" modulename="quiz" contextid="400">
+  <quiz id="5">
+    <name>Chapter 1 quiz</name>
+    <intro>&lt;p&gt;Test your knowledge of chapter 1.&lt;/p&gt;</intro>
+    <introformat>1</introformat>
+    <timelimit>600</timelimit>
+    <attempts>3</attempts>
+    <grade>10.00000</grade>
+    <sumgrades>3.00000</sumgrades>
+    <question_instances>
+      <question_instance id="1">
+        <slot>1</slot>
+        <page>1</page>
+        <requireprevious>0</requireprevious>
+        <maxmark>2.0000000</maxmark>
+        <question_reference>
+          <usingcontextid>3</usingcontextid>
+          <component>mod_quiz</component>
+          <questionarea>slot</questionarea>
+          <questionbankentryid>10</questionbankentryid>
+          <version>$@NULL@$</version>
+        </question_reference>
+      </question_instance>
+      <question_instance id="2">
+        <slot>2</slot>
+        <page>2</page>
+        <requireprevious>0</requireprevious>
+        <maxmark>1.0000000</maxmark>
+        <question_reference>
+          <usingcontextid>3</usingcontextid>
+          <component>mod_quiz</component>
+          <questionarea>slot</questionarea>
+          <questionbankentryid>11</questionbankentryid>
+          <version>$@NULL@$</version>
+        </question_reference>
+      </question_instance>
+    </question_instances>
+  </quiz>
+</activity>

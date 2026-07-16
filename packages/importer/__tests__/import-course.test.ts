@@ -49,12 +49,15 @@ describe('importCourse (dryRun)', () => {
     expect(report.courseTitle).toBe('Test Course');
     expect(report.courseSlug).toMatch(/^testcourse-[A-Za-z0-9_-]{6}$/);
     expect(report.modules).toBe(3);
-    expect(report.lessons).toBe(5);
-    expect(report.blocks).toBe(5);
+    expect(report.lessons).toBe(6);
+    expect(report.blocks).toBe(6);
     expect(report.files).toEqual({ count: 1, totalBytes: 4 });
-    expect(report.warnings).toEqual([]);
-    expect(report.skippedActivities).toEqual([
-      { modulename: 'quiz', title: 'Chapter 1 quiz', reason: 'quiz: импорт в следующей задаче' },
+    expect(report.skippedActivities).toEqual([]);
+    expect(report.quizzes).toBe(1);
+    expect(report.questions).toEqual({ imported: 1, skippedByType: { essay: 1 } });
+    expect(report.warnings).toEqual([
+      'вопрос Q2 essay пропущен: тип не поддерживается в MVP',
+      'Квиз "Chapter 1 quiz": вопрос для question_instance (slot 2) не найден, пропущен',
     ]);
     expect(storage.calls).toHaveLength(0);
   });

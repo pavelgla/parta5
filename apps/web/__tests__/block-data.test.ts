@@ -33,4 +33,14 @@ describe('parseBlockData', () => {
   it('throws BAD_REQUEST for data shaped for a different block type', () => {
     expect(() => parseBlockData('LIST', { html: '<p>x</p>', text: 'x' })).toThrow(TRPCError);
   });
+
+  it('parses valid data for QUIZ', () => {
+    const quizId = '11111111-1111-4111-8111-111111111111';
+    const result = parseBlockData('QUIZ', { quizId, title: 'Chapter 1 quiz' });
+    expect(result).toEqual({ quizId, title: 'Chapter 1 quiz' });
+  });
+
+  it('throws BAD_REQUEST when QUIZ quizId is not a uuid', () => {
+    expect(() => parseBlockData('QUIZ', { quizId: 'not-a-uuid', title: 'x' })).toThrow(TRPCError);
+  });
 });

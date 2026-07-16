@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<question_categories>
+  <question_category id="1">
+    <name>Default for Course</name>
+    <contextid>3</contextid>
+    <contextlevel>50</contextlevel>
+    <contextinstanceid>2</contextinstanceid>
+    <info></info>
+    <infoformat>0</infoformat>
+    <stamp>abc</stamp>
+    <parent>0</parent>
+    <sortorder>999</sortorder>
+    <idnumber>$@NULL@$</idnumber>
+    <question_bank_entries>
+      <question_bank_entry id="10">
+        <questioncategoryid>1</questioncategoryid>
+        <idnumber>$@NULL@$</idnumber>
+        <ownerid>2</ownerid>
+        <nextversion>$@NULL@$</nextversion>
+        <question_version>
+          <question_versions id="20">
+            <version>1</version>
+            <status>ready</status>
+            <questions>
+              <question id="100">
+                <parent>0</parent>
+                <name>Q1 multichoice</name>
+                <questiontext>&lt;p&gt;2+2=?&lt;/p&gt;</questiontext>
+                <questiontextformat>1</questiontextformat>
+                <generalfeedback></generalfeedback>
+                <generalfeedbackformat>1</generalfeedbackformat>
+                <defaultmark>2.0000000</defaultmark>
+                <penalty>0.3333333</penalty>
+                <qtype>multichoice</qtype>
+                <length>1</length>
+                <stamp>abc</stamp>
+                <timecreated>1</timecreated>
+                <timemodified>1</timemodified>
+                <createdby>2</createdby>
+                <modifiedby>2</modifiedby>
+                <plugin_qtype_multichoice_question>
+                  <answers>
+                    <answer id="500">
+                      <answertext>4</answertext>
+                      <answerformat>0</answerformat>
+                      <fraction>1.0000000</fraction>
+                      <feedback></feedback>
+                      <feedbackformat>1</feedbackformat>
+                    </answer>
+                    <answer id="501">
+                      <answertext>5</answertext>
+                      <answerformat>0</answerformat>
+                      <fraction>0.0000000</fraction>
+                      <feedback></feedback>
+                      <feedbackformat>1</feedbackformat>
+                    </answer>
+                  </answers>
+                  <multichoice>
+                    <single>1</single>
+                    <shuffleanswers>1</shuffleanswers>
+                  </multichoice>
+                </plugin_qtype_multichoice_question>
+              </question>
+            </questions>
+          </question_versions>
+        </question_version>
+      </question_bank_entry>
+      <question_bank_entry id="11">
+        <questioncategoryid>1</questioncategoryid>
+        <idnumber>$@NULL@$</idnumber>
+        <ownerid>2</ownerid>
+        <nextversion>$@NULL@$</nextversion>
+        <question_version>
+          <question_versions id="21">
+            <version>1</version>
+            <status>ready</status>
+            <questions>
+              <question id="101">
+                <parent>0</parent>
+                <name>Q2 essay</name>
+                <questiontext>&lt;p&gt;Explain gravity.&lt;/p&gt;</questiontext>
+                <questiontextformat>1</questiontextformat>
+                <generalfeedback></generalfeedback>
+                <generalfeedbackformat>1</generalfeedbackformat>
+                <defaultmark>1.0000000</defaultmark>
+                <penalty>0.0000000</penalty>
+                <qtype>essay</qtype>
+                <length>1</length>
+                <stamp>abc</stamp>
+                <timecreated>1</timecreated>
+                <timemodified>1</timemodified>
+                <createdby>2</createdby>
+                <modifiedby>2</modifiedby>
+              </question>
+            </questions>
+          </question_versions>
+        </question_version>
+      </question_bank_entry>
+    </question_bank_entries>
+  </question_category>
+</question_categories>

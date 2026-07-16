@@ -13,4 +13,6 @@ export interface ImportReport {
   files: { count: number; totalBytes: number };
   skippedActivities: SkippedActivity[];
   warnings: string[];
+  quizzes: number;
+  questions: { imported: number; skippedByType: Record<string, number> };
 }

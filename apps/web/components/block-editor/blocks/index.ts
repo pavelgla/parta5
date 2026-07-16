@@ -10,3 +10,4 @@ export { CodeBlock } from './code-block';
 export { QuoteBlock } from './quote-block';
 export { DividerBlock } from './divider-block';
 export { EmbedIframeBlock } from './embed-iframe-block';
+export { QuizBlock } from './quiz-block';

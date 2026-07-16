@@ -38,6 +38,7 @@ enum ContentBlockType {
   QUOTE
   DIVIDER
   EMBED_IFRAME
+  QUIZ
 }
 
 enum EnrollmentRole {

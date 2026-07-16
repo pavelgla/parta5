@@ -21,6 +21,7 @@ import {
   QuoteBlock,
   DividerBlock,
   EmbedIframeBlock,
+  QuizBlock,
 } from './blocks';
 
 interface Props {
@@ -82,6 +83,8 @@ function BlockRenderer({
       return <DividerBlock {...props} />;
     case 'EMBED_IFRAME':
       return <EmbedIframeBlock {...props} />;
+    case 'QUIZ':
+      return <QuizBlock {...props} />;
     default:
       return null;
   }
@@ -117,6 +120,9 @@ function getDefaultData(type: BlockType): Record<string, unknown> {
       return {};
     case 'EMBED_IFRAME':
       return { height: 400 };
+    case 'QUIZ':
+      // unreachable via the palette — QUIZ blocks come only from the mod_quiz importer
+      return { quizId: '', title: '' };
   }
 }
 
