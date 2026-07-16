@@ -67,6 +67,13 @@ PROMPTS=(
   "C4|feat(importer): parta5-import CLI with dry-run report"
   "C5|feat(import): course-import worker job + mbz upload UI"
   "C8|feat(course): school kind + relaxed publish validation for non-schools"
+  "B4|feat(quiz): tRPC routers — questionBank, quiz, attempt with auto-grade"
+  "B5a|feat(quiz): question bank UI — banks, question editor, preview"
+  "B5b|feat(quiz): quiz builder + QUIZ block in editor palette"
+  "B6|feat(quiz): student quiz player — timer, autosave, results"
+  "B7|feat(worker): expire-attempts cron job + shared finalize in @parta5/quiz"
+  "B8|feat(gradebook): course results table + CSV export"
+  "B9|test(e2e): demo quiz seed + quiz-flow e2e"
 )
 
 TOTAL=${#PROMPTS[@]}

@@ -5,7 +5,7 @@
 **Рабочая папка:** `/home/gpaul/projects/parta5`
 **Запуск:** `./run-prompts.sh` или `./run-prompts.sh 5` (начать с промпта 5)
 
-Скоуп: **Этап A (hardening) + начало Этапа B (квиз)** — промпты 1–13 (выполнены 2026-07-16), **Этап C (импортер Moodle, задачи C1–C5 + C8)** — промпты 14–20. Из `docs/SUPERPLAN.md`. C6–C7 (экспорт с sel1, батч 106 курсов PSR) — операционные задачи, выполняются под присмотром, не через конвейер.
+Скоуп: **Этап A (hardening) + начало Этапа B (квиз)** — промпты 1–13 (выполнены 2026-07-16), **Этап C (импортер Moodle, C1–C5 + C8)** — промпты 14–20 (выполнены 2026-07-16), **Этап B остаток (B4–B9, квиз-UI)** — промпты 21–27. Из `docs/SUPERPLAN.md`. C6–C7 (экспорт с sel1, батч 106 курсов PSR) — операционные задачи, выполняются под присмотром, не через конвейер.
 Основание: `docs/reviews/2026-07-senior-product-review.md`.
 
 Перед запуском: `docker compose up -d db` (миграции в промптах 4 и 13 требуют живой Postgres), `.env` заполнен.
@@ -572,4 +572,177 @@
 4. Тесты: в существующий файл тестов курса/валидации (найди в apps/web/__tests__) добавь юнит-тесты validateCourse: SCHOOL — ошибки по subject/gradeLevel/cover есть; VOCATIONAL — их нет, но title/пустые модули по-прежнему дают ошибки; VOCATIONAL c gradeLevel 3 — ошибка диапазона.
 
 5. Проверка: pnpm --filter @parta5/db exec prisma validate, pnpm --filter web exec tsc --noEmit, pnpm test — зелёные.
+```
+
+---
+
+## ПРОМПТ 21: Quiz-Routers — tRPC: questionBank, quiz, attempt c auto-grade
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — монорепо LMS «Парта5»: Next.js 15 + tRPC v11, Prisma + RLS. Процедуры: apps/web/server/trpc/init.ts — protectedProcedure, tenantProcedure (даёт ctx.schoolId), teacherProcedure, adminProcedure. Роутеры лежат в apps/web/server/routers/, регистрируются в apps/web/server/routers/index.ts — посмотри существующие (course.ts как образец стиля: zod-инпуты, TRPCError, withTenant из @parta5/db). Модели: QuestionBank, Question (data Json = схемы @parta5/quiz), Quiz, QuizQuestion, QuizAttempt (status IN_PROGRESS/SUBMITTED/EXPIRED, questionsSnapshot Json, score/maxScore), QuizResponse (@@unique([attemptId, questionId]), questionId БЕЗ FK — вопрос заморожен снапшотом) — прочитай их в packages/db/prisma/schema.prisma. Оценивание: @parta5/quiz — questionData.parse, gradeQuestion(question, answer, points), gradeAttempt(items). Дизайн — docs/architecture/ADR-004-assessment-model.md, прочитай.
+
+Задача: три tRPC-роутера. В web добавь dependency @parta5/quiz (workspace:*), pnpm install.
+
+1. apps/web/server/routers/question-bank.ts:
+   - list: teacherProcedure → банки школы с _count.questions.
+   - create/rename/delete: teacherProcedure (delete — запрет если есть вопросы: BAD_REQUEST с понятным message).
+   - questions: teacherProcedure, input { bankId, cursor?, take=50 } → пагинированный список (id, type, name, updatedAt).
+   - questionById: teacherProcedure → полный вопрос (data).
+   - createQuestion/updateQuestion: teacherProcedure, input data валидируется через questionData.parse (в safeParse + BAD_REQUEST с деталями); update — инкремент version.
+   - deleteQuestion: teacherProcedure; если вопрос используется в QuizQuestion → BAD_REQUEST со списком квизов.
+
+2. apps/web/server/routers/quiz.ts:
+   - list: teacherProcedure → квизы школы (+ _count по вопросам и попыткам).
+   - byId: teacherProcedure → квиз + quizQuestions (order asc) c question (id, type, name).
+   - create/update: teacherProcedure (title, description?, timeLimitSeconds?, maxAttempts?, passingScore?, shuffleQuestions).
+   - setQuestions: teacherProcedure, input { quizId, items: [{ questionId, points }] } — транзакцией заменить состав: deleteMany + createMany c order по индексу массива.
+   - delete: teacherProcedure; если есть попытки — BAD_REQUEST (история важнее).
+
+3. apps/web/server/routers/attempt.ts (протокол из ADR-004, все процедуры tenantProcedure — студенту доступно):
+   - start: input { quizId }. Проверки: квиз существует в школе; пользователь зачислен хотя бы на один курс с QUIZ-блоком этого квиза ИЛИ является TEACHER/ADMIN (запрос ContentBlock type QUIZ, data->>'quizId'); активная попытка (IN_PROGRESS, не истекла) → вернуть её же (идемпотентность); лимит maxAttempts по числу SUBMITTED/EXPIRED → FORBIDDEN. Создание: questionsSnapshot = массив { questionId, order, points, data } из QuizQuestion+Question на момент старта (shuffleQuestions → перемешать порядок), maxScore = сумма points, expiresAt = timeLimitSeconds ? now + limit : null. Вернуть attempt без правильных ответов: из data перед отдачей клиенту ВЫРЕЗАТЬ choices[].correct/feedback, correctAnswer, acceptedAnswers (хелпер stripAnswers(data) в apps/web/server/lib/quiz-sanitize.ts + юнит-тест).
+   - answer: input { attemptId, questionId, answer: unknown }. Только своя попытка, только IN_PROGRESS; если expiresAt в прошлом → пометить EXPIRED (score по сохранённым ответам, см. finalize ниже) и FORBIDDEN. Валидация answer по типу вопроса из снапшота (multichoiceAnswer/truefalseAnswer/shortanswerAnswer из @parta5/quiz). Upsert QuizResponse (isCorrect/earnedPoints НЕ считать — только при submit).
+   - submit: input { attemptId }. Своя, IN_PROGRESS. Вынеси общий finalizeAttempt(tx, attempt, status) в apps/web/server/lib/finalize-attempt.ts: по снапшоту + QuizResponse прогнать gradeQuestion на каждый вопрос (нет ответа → 0), проставить isCorrect/earnedPoints в QuizResponse, score в attempt, status, submittedAt=now. Вернуть результат с разбором: для каждого вопроса data УЖЕ с ответами (попытка завершена — можно), given answer, isCorrect, earnedPoints.
+   - byId: своя попытка (или teacherProcedure-ветка не нужна — отдельная процедура resultsForQuiz: teacherProcedure → попытки всех по квизу). IN_PROGRESS → снапшот без ответов + свои ответы; завершённая → полный разбор как в submit.
+
+4. Зарегистрируй роутеры в index.ts (questionBank, quiz, attempt).
+
+5. Тесты apps/web/__tests__/: quiz-sanitize.test.ts (stripAnswers по всем трём типам — correct/feedback/acceptedAnswers вырезаны, prompt/choices.text остались); finalize-attempt.test.ts — чистая логика подсчёта на фиктивном снапшоте (2 вопроса, один без ответа → score частичный). Мокать prisma как в существующих authz-тестах (посмотри __tests__/authz.test.ts).
+
+6. Проверка: pnpm --filter web exec tsc --noEmit, pnpm test — зелёные.
+```
+
+---
+
+## ПРОМПТ 22: Bank-UI — интерфейс банка вопросов
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — Next.js 15 App Router + tRPC v11 + Tailwind. tRPC-клиент и паттерны страниц смотри в apps/web/app/(app)/courses/ (страницы+клиентские компоненты, как зовётся trpc-хук — посмотри в существующих client-компонентах). Роутер questionBank уже есть (list, create, rename, delete, questions c cursor-пагинацией, questionById, createQuestion, updateQuestion, deleteQuestion) — прочитай apps/web/server/routers/question-bank.ts. Схемы вопросов — packages/quiz/src/schemas.ts (MULTICHOICE: prompt, single, shuffleChoices, choices[{id,text,correct,feedback?}]; TRUEFALSE: prompt, correctAnswer; SHORTANSWER: prompt, acceptedAnswers[], caseSensitive).
+
+Задача: страница /banks — банки вопросов учителя. Доступ teacher/admin (как скрыты учительские элементы на /courses — повтори паттерн; студенту — redirect на /learn).
+
+1. apps/web/app/(app)/banks/page.tsx — список банков (название, число вопросов, дата), кнопка «Новый банк» (инлайн-форма имени), rename/delete по месту. Клик → /banks/<id>.
+
+2. apps/web/app/(app)/banks/[bankId]/page.tsx — вопросы банка: таблица (тип бейджем, name, обновлён), инфинит-подгрузка по cursor («Показать ещё»), кнопка «Новый вопрос» с выбором типа.
+
+3. components/question-editor/ — редактор вопроса (client):
+   - Общее: name, prompt (textarea, поддержка HTML не нужна — plain textarea, содержимое сохраняем как есть).
+   - MULTICHOICE: список вариантов (текст + чекбокс «верный» + опц. feedback), single (radio «один/несколько правильных» — при single=true верный может быть только один, UI это форсит), shuffleChoices чекбокс, добавить/удалить вариант (мин. 2).
+   - TRUEFALSE: переключатель верно/неверно.
+   - SHORTANSWER: список принимаемых ответов (мин. 1), caseSensitive чекбокс.
+   - Валидация на клиенте зеркалит серверную (мин. 1 верный у multichoice и т.д.), ошибки под полями. Сохранение → createQuestion/updateQuestion, серверная ошибка валидации — показать message.
+
+4. Превью вопроса: в редакторе вкладка/панель «Превью» — как увидит студент (варианты без пометок правильности).
+
+5. Ссылка «Банки вопросов» в навигацию рядом с «Курсами» (найди общий layout/header (app)-группы), только для teacher/admin.
+
+6. Стиль — как существующие страницы (Tailwind, без новых UI-библиотек). Русские строки.
+
+7. Проверка: pnpm --filter web exec tsc --noEmit, pnpm test, pnpm --filter web lint если есть такой скрипт — зелёные.
+```
+
+---
+
+## ПРОМПТ 23: Quiz-Builder — конструктор квиза + блок QUIZ в палитре редактора
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — Next.js 15 App Router + tRPC v11 + Tailwind. Роутеры quiz (list, byId, create, update, setQuestions, delete) и questionBank уже есть — прочитай apps/web/server/routers/quiz.ts. Редактор блоков урока: apps/web/components/block-editor/ (палитра типов в block-editor.tsx, дефолты data в types.ts, компонент блока QUIZ — blocks/quiz-block.tsx, сейчас заглушка «только импортер»). Серверная валидация block.create — apps/web/server/schemas/block-data.ts (QUIZ уже в union) и роутер block.ts.
+
+Задача: учитель собирает квиз из банка и вставляет его в урок.
+
+1. apps/web/app/(app)/quizzes/page.tsx — список квизов (title, вопросов, попыток, дата), «Новый квиз» → /quizzes/new (форма: title, description, timeLimitSeconds как «минуты» в UI c конверсией, maxAttempts, passingScore %, shuffleQuestions) → quiz.create → redirect на /quizzes/<id>.
+
+2. apps/web/app/(app)/quizzes/[quizId]/page.tsx — редактирование: слева настройки (quiz.update), справа состав: текущие вопросы (порядок, name, тип, points — инпут), кнопки вверх/вниз/убрать; «Добавить из банка» → модал: выбор банка → список вопросов с чекбоксами (переиспользуй questionBank.questions) → добавить выбранные. Сохранение состава одной кнопкой → quiz.setQuestions (порядок = текущий в списке).
+
+3. Блок QUIZ в палитре редактора уроков: в components/block-editor/ добавь QUIZ в палитру (лейбл «Тест»); при добавлении блок рендерит селект квизов школы (quiz.list) → выбор проставляет data { quizId, title }. Обнови комментарии «только импортер» (теперь блок создаётся и вручную). В blocks/quiz-block.tsx: если quizId пуст — селект; если выбран — карточка «Тест: {title}» + ссылка «Настроить» на /quizzes/<quizId>.
+
+4. Доступ ко всем страницам — teacher/admin (паттерн /banks). Ссылка «Тесты» в навигацию рядом с «Банками вопросов».
+
+5. Проверка: pnpm --filter web exec tsc --noEmit, pnpm test — зелёные.
+```
+
+---
+
+## ПРОМПТ 24: Quiz-Player — прохождение теста студентом
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — Next.js 15 App Router + tRPC v11 + Tailwind. Роутер attempt уже есть: start { quizId } → попытка со снапшотом БЕЗ правильных ответов (idempotent для активной), answer { attemptId, questionId, answer } (upsert, валидация типа), submit { attemptId } → результат с разбором, byId. Формы ответов: multichoiceAnswer { choiceIds: string[] }, truefalseAnswer { value: boolean }, shortanswerAnswer { text: string } (packages/quiz/src/schemas.ts). Студенческая страница урока: apps/web/app/(app)/learn/[courseId]/lessons/[lessonId]/page.tsx — функция LessonBlock рендерит блоки по type; тип QUIZ там сейчас НЕ обработан. Данные блока QUIZ: { quizId, title }.
+
+Задача: прохождение теста из урока.
+
+1. В LessonBlock добавь ветку QUIZ → клиентский компонент components/learn/quiz-player.tsx c props { quizId, title }.
+
+2. quiz-player.tsx (client): начальное состояние — карточка теста (title, из attempt.start НЕ дёргать до клика): кнопка «Начать тест» (или «Продолжить» — узнай активную попытку лёгкой процедурой; добавь в attempt роутер active: tenantProcedure { quizId } → активная попытка или null, и summary { quizId } → { attemptsUsed, maxAttempts, lastScore } для карточки).
+
+3. Прохождение: attempt.start → снапшот вопросов; навигация: один вопрос на экран, «Назад/Далее», индикатор-точки (отвечен/нет), сбоку/сверху счётчик «Вопрос K из N». Ответ сохраняется attempt.answer c debounce 500мс после изменения + немедленно при переходе между вопросами (autosave, индикатор «Сохранено»). Формы: multichoice single → radio, multi → чекбоксы; truefalse → две кнопки; shortanswer → текстовый инпут.
+
+4. Таймер: если у попытки expiresAt — обратный отсчёт мм:сс в шапке (клиентские часы от serverNow, который верни из start/active, чтобы не зависеть от локального времени); по нулю — автоматический attempt.submit c пометкой «время вышло». Красный цвет последней минуты.
+
+5. Кнопка «Завершить тест» (+ confirm со списком неотвеченных) → attempt.submit → экран результата: score / maxScore, процент, passed (если passingScore задан), разбор по вопросам: prompt, твой ответ, верно/неверно, feedback выбранных вариантов (данные уже приходят из submit/byId завершённой попытки). Кнопка «Пройти ещё раз», если попытки остались.
+
+6. Ошибка FORBIDDEN от answer при истёкшем времени — обработать: показать «Время вышло», дёрнуть byId за результатом.
+
+7. Тест: components/learn/__tests__ не заводим; добавь юнит на новую процедуру summary в существующем стиле роутер-тестов apps/web/__tests__ (мок prisma). Проверка: pnpm --filter web exec tsc --noEmit, pnpm test — зелёные.
+```
+
+---
+
+## ПРОМПТ 25: Expire-Attempts — воркер-джоб закрытия просроченных попыток
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — монорепо LMS «Парта5»: BullMQ-воркер apps/worker/src/index.ts (очереди video-transcode и course-import — посмотри устройство), Prisma. Модель QuizAttempt: status IN_PROGRESS/SUBMITTED/EXPIRED, expiresAt, questionsSnapshot Json (массив { questionId, order, points, data }), @@index([status, expiresAt]). Логика финализации попытки уже есть в apps/web/server/lib/finalize-attempt.ts — НО worker не может импортировать из apps/web.
+
+Задача: cron-джоб, закрывающий просроченные попытки с подсчётом балла по сохранённым ответам.
+
+1. Перенеси finalize-логику в packages/quiz: src/finalize.ts — export function computeAttemptScore(snapshot: SnapshotItem[], responses: Array<{ questionId, answer }>): { score, maxScore, perQuestion: [{ questionId, isCorrect, earnedPoints }] } (чистая функция поверх gradeQuestion; тип SnapshotItem экспортируй). apps/web/server/lib/finalize-attempt.ts перепиши как тонкую обёртку: computeAttemptScore + запись в БД (поведение и сигнатура для роутеров не меняются). Юнит-тесты computeAttemptScore перенеси/добавь в packages/quiz/__tests__/finalize.test.ts (вопрос без ответа → 0, частичный балл).
+
+2. apps/worker/src/jobs/expire-attempts.ts: найти QuizAttempt where status IN_PROGRESS AND expiresAt < now (limit 100 за прогон); для каждой — withTenant(schoolId): QuizResponse попытки → computeAttemptScore → update isCorrect/earnedPoints ответов, attempt: score, status EXPIRED, submittedAt = expiresAt. Лог: сколько закрыто.
+
+3. apps/worker/src/index.ts: очередь 'quiz-maintenance', Worker + при старте воркера Queue.upsertJobScheduler('expire-attempts', { every: 60000 }, ...) (BullMQ repeatable; посмотри установленную версию bullmq в package.json — если старше 5.16, используй add c repeat: { every: 60000 } и removeOnComplete). concurrency 1.
+
+4. Воркеру нужен @parta5/quiz — добавь dependency (workspace:*), pnpm install.
+
+5. Проверка: pnpm --filter @parta5/quiz test, pnpm --filter @parta5/worker exec tsc --noEmit (посмотри его typecheck-скрипт), pnpm --filter web exec tsc --noEmit, pnpm test — зелёные.
+```
+
+---
+
+## ПРОМПТ 26: Mini-Gradebook — журнал результатов по курсу + CSV
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — Next.js 15 App Router + tRPC v11 + Prisma + Tailwind. Контекст: у курса есть уроки с блоками type QUIZ (data { quizId, title }); попытки — QuizAttempt (status SUBMITTED/EXPIRED имеют score/maxScore, userId, submittedAt); зачисления — Enrollment (courseId, userId, role STUDENT — посмотри модель в packages/db/prisma/schema.prisma). Роутеры в apps/web/server/routers/, teacherProcedure — apps/web/server/trpc/init.ts.
+
+Задача: журнал «ученики × квизы курса» и CSV-экспорт.
+
+1. apps/web/server/routers/gradebook.ts (зарегистрируй в index.ts):
+   - forCourse: teacherProcedure, input { courseId } → { quizzes: [{ quizId, title, lessonTitle }], rows: [{ userId, userName, cells: [{ quizId, bestScore, maxScore, attempts, lastAt }] }] }. Квизы курса — из ContentBlock type QUIZ его уроков (порядок: модуль→урок→блок); ученики — Enrollment STUDENT; bestScore — максимум по завершённым попыткам (SUBMITTED и EXPIRED). Ownership курса — как в других teacher-процедурах курса (посмотри course.ts).
+   - csvForCourse: teacherProcedure → строка CSV: разделитель «;», BOM ﻿ в начале (Excel-совместимость), заголовок «Ученик;<квиз 1>;<квиз 2>...», ячейка «7.5/10 (2 поп.)» либо пусто. Имена с «;» или кавычками — экранируй по RFC 4180.
+
+2. apps/web/app/(app)/courses/[id]/gradebook/page.tsx: таблица (sticky первая колонка, горизонтальный скролл), ячейка: балл + процент цветом (>=passingScore зелёный если задан), пустая — «—». Кнопка «Экспорт CSV» — дёргает csvForCourse и скачивает blob (имя файла gradebook-<slug>.csv). Ссылка «Журнал» со страницы курса (где редактирование курса — найди и добавь рядом с существующими действиями, teacher-only).
+
+3. Тесты: юнит csv-логики — вынеси построение CSV в чистую функцию apps/web/server/lib/gradebook-csv.ts и протестируй в apps/web/__tests__/gradebook-csv.test.ts (экранирование, BOM, пустые ячейки).
+
+4. Проверка: pnpm --filter web exec tsc --noEmit, pnpm test — зелёные.
+```
+
+---
+
+## ПРОМПТ 27: Quiz-Seed + E2E — демо-квиз в сиде и e2e прохождения
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — монорепо LMS «Парта5»: Prisma seed packages/db/prisma/seed.ts (демо-школа RunStart, демо-курс с модулями, учитель/студент — прочитай его), Playwright e2e в e2e/ (посмотри существующие тесты: авторизация, student-journey; как поднимается стенд — playwright.config и CI-джоб .github/workflows/ci.yml). Квиз-стек целиком готов: банк вопросов, квизы, блок QUIZ, плеер (attempt.start/answer/submit), журнал /courses/<id>/gradebook.
+
+Задача: демо-квиз в сиде + e2e полного круга.
+
+1. seed.ts: добавь QuestionBank «Основы бега» c 5 вопросами (2 MULTICHOICE single — про технику бега и пульсовые зоны с 4 вариантами и feedback у правильного; 1 MULTICHOICE multi — «что взять на пробежку зимой», 2 верных из 4; 1 TRUEFALSE — «разминка перед бегом обязательна» = true; 1 SHORTANSWER — «сколько минут разминка минимум» acceptedAnswers ["10", "десять"]). Quiz «Проверка знаний: основы бега»: passingScore 60, maxAttempts 3, timeLimitSeconds 600, все 5 вопросов по 2 балла. Вставь блок QUIZ в первый урок первого модуля демо-курса (data { quizId, title }). Сид должен остаться идемпотентным — посмотри, как он сейчас чистит/апсертит, и повтори паттерн.
+
+2. e2e/quiz-flow.spec.ts:
+   - Студент: логин демо-студентом → открыть урок с квизом → «Начать тест» → ответить на все 5 (селекторы — по ролям/тексту, data-testid добавляй в quiz-player где нужно) → «Завершить» → экран результата: score 10/10, «пройдено».
+   - Ответь на один вопрос неверно во второй попытке → результат 8/10 и разбор помечает вопрос неверным.
+   - Учитель: логин → /courses/<id>/gradebook → в таблице студент с лучшим баллом 10/10.
+   - CSV: клик «Экспорт CSV» → download event, содержимое содержит имя студента.
+   Пути/селекторы существующих e2e переиспользуй (helpers логина, если есть).
+
+3. Прогон локально: подними стенд как это делает CI (docker compose db/redis/minio + сид + build/start web) ЛИБО, если в package.json есть e2e-скрипт — им; e2e должен пройти. Если поднять полный стенд в этой среде невозможно — прогони хотя бы pnpm exec playwright test --list (тесты синтаксически валидны и обнаруживаются) и оставь комментарий в PR-стиле в конце ответа, что полный прогон — в CI.
+
+4. Проверка: pnpm --filter @parta5/db exec prisma validate; сид применяется без ошибок на чистой БД (если БД доступна: pnpm --filter @parta5/db exec prisma migrate reset --force --skip-generate затем сид — посмотри seed-скрипт в package.json); pnpm typecheck, pnpm test — зелёные.
 ```
