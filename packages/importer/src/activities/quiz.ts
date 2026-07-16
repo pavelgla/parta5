@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { XMLParser } from 'fast-xml-parser';
+import { createXmlParser } from '../xml.js';
 import { toArray } from '../manifest.js';
 import { sanitizeQuestionHtml } from '../questions/sanitize.js';
 import { nullableString } from '../xml-common.js';
@@ -36,7 +36,7 @@ function toQuestionInstance(raw: Record<string, unknown>): QuizQuestionInstance 
 export async function parseQuiz(backupDir: string, directory: string): Promise<ParsedQuiz> {
   const xmlPath = path.join(backupDir, directory, 'quiz.xml');
   const xml = await readFile(xmlPath, 'utf-8');
-  const parser = new XMLParser({ ignoreAttributes: false });
+  const parser = createXmlParser();
   const parsed = parser.parse(xml);
   const quiz = parsed.activity.quiz;
 

@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { XMLParser } from 'fast-xml-parser';
+import { createXmlParser, parseXmlBool } from '../xml.js';
 import { toArray } from '../manifest.js';
 import { convertQuestion, type RawQuestion } from './convert.js';
 import type { QuestionParseResult } from './types.js';
@@ -19,8 +19,8 @@ function toRawQuestion(question: Record<string, unknown>): RawQuestion {
     qtype,
     questiontextHtml: textValue(question.questiontext),
     defaultgrade: question.defaultgrade !== undefined ? Number(question.defaultgrade) : 0,
-    single: Boolean(question.single),
-    shuffleanswers: Boolean(question.shuffleanswers),
+    single: parseXmlBool(question.single),
+    shuffleanswers: parseXmlBool(question.shuffleanswers),
     usecase: question.usecase !== undefined ? Number(question.usecase) : undefined,
     answers: toArray(question.answer as Record<string, unknown> | Record<string, unknown>[]).map(
       (answer) => ({
@@ -33,7 +33,7 @@ function toRawQuestion(question: Record<string, unknown>): RawQuestion {
 }
 
 export function parseMoodleXml(xmlString: string): QuestionParseResult {
-  const parser = new XMLParser({ ignoreAttributes: false });
+  const parser = createXmlParser();
   const parsed = parser.parse(xmlString);
   const rawQuestions = toArray(parsed.quiz?.question);
 
