@@ -9,7 +9,6 @@ import { FileUpload } from '@/components/file-upload';
 
 interface CoverAsset {
   id: string;
-  key: string;
 }
 
 type LongDescJson = { html: string };

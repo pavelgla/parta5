@@ -27,14 +27,13 @@ export function FileBlock({ block, onChange, onDelete, onSavingChange }: BlockPr
   const [fileAssetId, setFileAssetId] = useState<string | undefined>(
     block.data.fileAssetId as string | undefined,
   );
-  const [fileKey, setFileKey] = useState<string | undefined>(undefined);
   const [displayName, setDisplayName] = useState<string>((block.data.displayName as string) ?? '');
   const [originalName, setOriginalName] = useState<string>('');
   const [sizeBytes, setSizeBytes] = useState<number | undefined>(undefined);
 
   const { data: assetData } = trpc.file.getAsset.useQuery(
     { fileAssetId: fileAssetId! },
-    { enabled: !!fileAssetId && !fileKey },
+    { enabled: !!fileAssetId && !originalName },
   );
 
   const updateBlock = trpc.block.update.useMutation({
@@ -50,14 +49,12 @@ export function FileBlock({ block, onChange, onDelete, onSavingChange }: BlockPr
     });
   }, 500);
 
-  const resolvedKey = fileKey ?? assetData?.key;
   const resolvedName = assetData?.originalName ?? originalName;
   const resolvedSize = assetData?.sizeBytes ?? sizeBytes;
-  const fileUrl = resolvedKey ? getFileUrl({ key: resolvedKey }) : null;
+  const fileUrl = fileAssetId ? getFileUrl({ id: fileAssetId }) : null;
 
   const handleUploaded = (asset: UploadedAsset) => {
     setFileAssetId(asset.id);
-    setFileKey(asset.key);
     setOriginalName(asset.originalName);
     setSizeBytes(asset.sizeBytes);
     const name = displayName || asset.originalName;
@@ -131,7 +128,7 @@ export function FileBlock({ block, onChange, onDelete, onSavingChange }: BlockPr
             type="button"
             onClick={() => {
               setFileAssetId(undefined);
-              setFileKey(undefined);
+              setOriginalName('');
             }}
             className="text-xs text-gray-400 hover:text-red-500 transition-colors"
           >

@@ -128,23 +128,32 @@ function LessonBlock({ type, data }: { type: string; data: Record<string, unknow
     );
   }
   if (type === 'IMAGE') {
+    const fileAssetId = data.fileAssetId ? String(data.fileAssetId) : '';
+    if (!fileAssetId) {
+      return <p className="text-sm text-gray-400">Изображение недоступно</p>;
+    }
     return (
       <img
-        src={getFileUrl({ key: String(data.key ?? '') })}
+        src={getFileUrl({ id: fileAssetId })}
         alt={String(data.alt ?? '')}
         className="max-w-full rounded-lg"
       />
     );
   }
   if (type === 'FILE') {
+    const fileAssetId = data.fileAssetId ? String(data.fileAssetId) : '';
+    if (!fileAssetId) {
+      return <p className="text-sm text-gray-400">Файл недоступен</p>;
+    }
     return (
       <a
-        href={getFileUrl({ key: String(data.key ?? data.url ?? '#') })}
+        href={getFileUrl({ id: fileAssetId })}
+        download
         className="text-blue-600 hover:underline text-sm"
         target="_blank"
         rel="noreferrer"
       >
-        {String(data.filename ?? 'Файл')}
+        {String(data.displayName ?? 'Файл')}
       </a>
     );
   }

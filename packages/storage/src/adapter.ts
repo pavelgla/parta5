@@ -5,6 +5,7 @@ export interface StorageAdapter {
     sizeBytes: number,
   ): Promise<{ url: string; fields?: Record<string, string>; expiresAt: Date }>;
   publicUrl(key: string): string;
+  presignDownload(key: string, expiresSeconds: number): Promise<string>;
   delete(key: string): Promise<void>;
   headObject(key: string): Promise<{ size: number; contentType: string } | null>;
   getObjectStream(key: string): Promise<NodeJS.ReadableStream>;

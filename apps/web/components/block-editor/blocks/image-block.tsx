@@ -21,14 +21,8 @@ export function ImageBlock({ block, onChange, onDelete, onSavingChange }: BlockP
   const [fileAssetId, setFileAssetId] = useState<string | undefined>(
     block.data.fileAssetId as string | undefined,
   );
-  const [imageKey, setImageKey] = useState<string | undefined>(undefined);
   const [alt, setAlt] = useState<string>((block.data.alt as string) ?? '');
   const [caption, setCaption] = useState<string>((block.data.caption as string) ?? '');
-
-  const { data: assetData } = trpc.file.getAsset.useQuery(
-    { fileAssetId: fileAssetId! },
-    { enabled: !!fileAssetId && !imageKey },
-  );
 
   const updateBlock = trpc.block.update.useMutation({
     onMutate: () => onSavingChange?.(true),
@@ -43,12 +37,10 @@ export function ImageBlock({ block, onChange, onDelete, onSavingChange }: BlockP
     });
   }, 500);
 
-  const resolvedKey = imageKey ?? assetData?.key;
-  const imageUrl = resolvedKey ? getFileUrl({ key: resolvedKey }) : null;
+  const imageUrl = fileAssetId ? getFileUrl({ id: fileAssetId }) : null;
 
   const handleUploaded = (asset: UploadedAsset) => {
     setFileAssetId(asset.id);
-    setImageKey(asset.key);
     onChange({ fileAssetId: asset.id, alt, caption });
     updateBlock.mutate({
       id: block.id,
@@ -122,10 +114,7 @@ export function ImageBlock({ block, onChange, onDelete, onSavingChange }: BlockP
 
           <button
             type="button"
-            onClick={() => {
-              setFileAssetId(undefined);
-              setImageKey(undefined);
-            }}
+            onClick={() => setFileAssetId(undefined)}
             className="text-xs text-gray-400 hover:text-red-500 transition-colors"
           >
             Заменить изображение

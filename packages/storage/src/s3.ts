@@ -58,6 +58,11 @@ export class S3StorageAdapter implements StorageAdapter {
     return `${this.basePublicUrl}/${key}`;
   }
 
+  async presignDownload(key: string, expiresSeconds: number): Promise<string> {
+    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+    return getSignedUrl(this.client, command, { expiresIn: expiresSeconds });
+  }
+
   async delete(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }

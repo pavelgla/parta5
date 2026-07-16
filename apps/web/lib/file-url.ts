@@ -1,12 +1,8 @@
 /**
- * Build a public URL for a stored asset.
- * Uses S3_PUBLIC_URL env var directly to avoid pulling server-only AWS SDK
- * into client bundles.
+ * Build the URL for a stored file asset.
+ * Always routes through the authorized proxy endpoint (see ADR-005) — never
+ * builds a direct S3 URL, since the school files bucket is private.
  */
-export function getFileUrl(asset: { key: string }): string {
-  const base = (process.env.NEXT_PUBLIC_S3_PUBLIC_URL ?? process.env.S3_PUBLIC_URL ?? '').replace(
-    /\/$/,
-    '',
-  );
-  return `${base}/${asset.key}`;
+export function getFileUrl(asset: { id: string }): string {
+  return `/api/files/${asset.id}`;
 }

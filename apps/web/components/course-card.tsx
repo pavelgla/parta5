@@ -11,7 +11,7 @@ interface CourseCardProps {
     subject?: string | null;
     gradeLevel?: number | null;
     shortDescription?: string | null;
-    coverFileAsset?: { key: string } | null;
+    coverFileAsset?: { id: string } | null;
   };
   variant: 'teacher' | 'student';
 }

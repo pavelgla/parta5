@@ -45,7 +45,7 @@ export const courseRouter = router({
           subject: true,
           gradeLevel: true,
           shortDescription: true,
-          coverFileAsset: { select: { key: true } },
+          coverFileAsset: { select: { id: true } },
         },
       }),
     );
@@ -61,7 +61,7 @@ export const courseRouter = router({
             orderBy: { order: 'asc' },
             include: { lessons: { orderBy: { order: 'asc' } } },
           },
-          coverFileAsset: { select: { id: true, key: true } },
+          coverFileAsset: { select: { id: true } },
         },
       }),
     );
