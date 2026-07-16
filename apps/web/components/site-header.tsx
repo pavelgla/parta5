@@ -29,6 +29,12 @@ export async function SiteHeader() {
               >
                 Банки вопросов
               </Link>
+              <Link
+                href="/quizzes"
+                className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Тесты
+              </Link>
             </nav>
           )}
         </div>

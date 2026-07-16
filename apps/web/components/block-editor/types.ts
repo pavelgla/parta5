@@ -33,7 +33,6 @@ export const BLOCK_DEFAULTS: Record<BlockType, Record<string, unknown>> = {
   QUOTE: { text: '', author: '' },
   DIVIDER: {},
   EMBED_IFRAME: { height: 400 },
-  // QUIZ blocks are only created by the mod_quiz importer, never via the palette.
   QUIZ: { quizId: '', title: '' },
 };
 

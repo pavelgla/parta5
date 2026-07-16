@@ -99,8 +99,8 @@ const EmbedIframeData = z.object({
 const QuizData = z.object({
   type: z.literal('QUIZ'),
   data: z.object({
-    quizId: z.string().uuid(),
-    title: z.string(),
+    quizId: z.string().uuid().or(z.literal('')).optional(),
+    title: z.string().optional(),
   }),
 });
 

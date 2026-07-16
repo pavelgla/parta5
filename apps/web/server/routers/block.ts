@@ -135,6 +135,13 @@ export const blockRouter = router({
               height: z.number().int().positive().optional(),
             }),
           }),
+          z.object({
+            type: z.literal('QUIZ'),
+            data: z.object({
+              quizId: z.string().uuid().or(z.literal('')).optional(),
+              title: z.string().optional(),
+            }),
+          }),
         ]),
       ),
     )

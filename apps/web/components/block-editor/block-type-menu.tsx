@@ -15,6 +15,7 @@ import {
   Globe,
   X,
   Quote,
+  ListChecks,
 } from 'lucide-react';
 import type { BlockType } from './types';
 
@@ -67,6 +68,12 @@ const BLOCK_OPTIONS: BlockOption[] = [
     icon: <Code2 size={16} />,
   },
   { type: 'QUOTE', name: 'Цитата', description: 'Цитата с автором', icon: <Quote size={16} /> },
+  {
+    type: 'QUIZ',
+    name: 'Тест',
+    description: 'Вставить тест из банка',
+    icon: <ListChecks size={16} />,
+  },
   {
     type: 'DIVIDER',
     name: 'Разделитель',
