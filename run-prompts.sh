@@ -74,6 +74,8 @@ PROMPTS=(
   "B7|feat(worker): expire-attempts cron job + shared finalize in @parta5/quiz"
   "B8|feat(gradebook): course results table + CSV export"
   "B9|test(e2e): demo quiz seed + quiz-flow e2e"
+  "C2b-1|feat(files): authenticated /api/files/[id] serving + ADR-005, fix IMAGE/FILE blocks"
+  "C2b-2|feat(importer): question images to S3 + @@PLUGINFILE@@ rewriting"
 )
 
 TOTAL=${#PROMPTS[@]}

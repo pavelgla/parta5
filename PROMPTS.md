@@ -5,7 +5,7 @@
 **Рабочая папка:** `/home/gpaul/projects/parta5`
 **Запуск:** `./run-prompts.sh` или `./run-prompts.sh 5` (начать с промпта 5)
 
-Скоуп: **Этап A (hardening) + начало Этапа B (квиз)** — промпты 1–13 (выполнены 2026-07-16), **Этап C (импортер Moodle, C1–C5 + C8)** — промпты 14–20 (выполнены 2026-07-16), **Этап B остаток (B4–B9, квиз-UI)** — промпты 21–27. Из `docs/SUPERPLAN.md`. C6–C7 (экспорт с sel1, батч 106 курсов PSR) — операционные задачи, выполняются под присмотром, не через конвейер.
+Скоуп: **Этап A (hardening) + начало Этапа B (квиз)** — промпты 1–13 (выполнены 2026-07-16), **Этап C (импортер Moodle, C1–C5 + C8)** — промпты 14–20 (выполнены 2026-07-16), **Этап B остаток (B4–B9, квиз-UI)** — промпты 21–27 (выполнены 2026-07-16), **C2b (картинки вопросов + авторизованная раздача файлов)** — промпты 28–29. Из `docs/SUPERPLAN.md`. C6–C7 (экспорт с sel1, батч 106 курсов PSR) — операционные задачи, выполняются под присмотром, не через конвейер.
 Основание: `docs/reviews/2026-07-senior-product-review.md`.
 
 Перед запуском: `docker compose up -d db` (миграции в промптах 4 и 13 требуют живой Postgres), `.env` заполнен.
@@ -745,4 +745,85 @@
 3. Прогон локально: подними стенд как это делает CI (docker compose db/redis/minio + сид + build/start web) ЛИБО, если в package.json есть e2e-скрипт — им; e2e должен пройти. Если поднять полный стенд в этой среде невозможно — прогони хотя бы pnpm exec playwright test --list (тесты синтаксически валидны и обнаруживаются) и оставь комментарий в PR-стиле в конце ответа, что полный прогон — в CI.
 
 4. Проверка: pnpm --filter @parta5/db exec prisma validate; сид применяется без ошибок на чистой БД (если БД доступна: pnpm --filter @parta5/db exec prisma migrate reset --force --skip-generate затем сид — посмотри seed-скрипт в package.json); pnpm typecheck, pnpm test — зелёные.
+```
+
+---
+
+## ПРОМПТ 28: File-Serving — авторизованная раздача файлов /api/files/[id] + ADR-005
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — монорепо LMS «Парта5»: Next.js 15 App Router, Auth.js v5 (сессия — `auth()` из apps/web/auth.ts; паттерн Edge/Node описан в CLAUDE.md, прочитай), tRPC v11, Prisma + RLS (withTenant из @parta5/db), S3 через packages/storage (StorageAdapter: presignUpload, publicUrl, getObjectStream, headObject; createStorageFromEnv). Модель FileAsset: id, schoolId, uploaderId, key, originalName, mimeType, sizeBytes, status (PENDING/READY). Прочитай packages/storage/src/adapter.ts, apps/web/lib/file-url.ts, apps/web/server/routers/file.ts.
+
+Контекст (два подтверждённых бага, чинишь оба):
+1. apps/web/lib/file-url.ts строит ПУБЛИЧНЫЙ URL `${S3_PUBLIC_URL}/${key}`, но MinIO раздаёт анонимно только `public/*` (см. docker-compose.yml, `mc anonymous set download local/${S3_BUCKET}/public/*`), а ключи файлов — `schools/<schoolId>/files/...`. Проверено: прямой GET такого ключа отдаёт 403. Делать бакет школ публичным НЕЛЬЗЯ — это персональные данные (152-ФЗ) и разрыв мультитенантности.
+2. Рендер студента в apps/web/app/(app)/learn/[courseId]/lessons/[lessonId]/page.tsx для FILE читает `data.key ?? data.url` и `data.filename`, а схема FILE-блока (apps/web/server/schemas/block-data.ts) — `{ fileAssetId, displayName }`. Поля не совпадают → ссылка ведёт на `.../undefined`, подпись всегда «Файл». Для IMAGE аналогично читается `data.key`.
+
+Задача: стабильный авторизованный URL файла + починка блоков.
+
+1. docs/architecture/ADR-005-file-serving.md (статус accepted, стиль — как ADR-002/ADR-004, на русском): решение — файлы школ отдаются ТОЛЬКО через `/api/files/<fileAssetId>` с проверкой сессии и школы; S3-бакет остаётся приватным; presigned-URL не кладём в БД (истекают, а HTML вопросов хранится); альтернативы (публичный бакет, presign при рендере) и почему отклонены (152-ФЗ, мультитенантность, протухание ссылок в сохранённом HTML).
+
+2. apps/web/app/api/files/[fileAssetId]/route.ts — GET, runtime 'nodejs':
+   - `auth()`; нет сессии → 401. Нет session.user.schoolId → 401.
+   - FileAsset по id через withTenant(schoolId) (RLS сам отсечёт чужую школу); не найден или status !== 'READY' → 404 (НЕ 403 — не раскрываем существование чужих файлов).
+   - Отдать редиректом на presigned GET-URL, если адаптер это умеет: добавь в StorageAdapter метод `presignDownload(key: string, expiresSeconds: number): Promise<string>` и реализуй в S3StorageAdapter через `@aws-sdk/s3-request-presigner` (getSignedUrl + GetObjectCommand; посмотри, есть ли пакет в зависимостях packages/storage — если нет, добавь и сделай pnpm install). Редирект 302 на presigned (expires 300 сек), заголовок `Cache-Control: private, max-age=60`.
+   - Ошибка S3 → 502 с логом (pino/console запрещён в проде — посмотри, как логируют соседние route handlers, повтори).
+
+3. apps/web/lib/file-url.ts: `getFileUrl` больше НЕ строит S3-URL. Замени на `export function getFileUrl(asset: { id: string }): string { return `/api/files/${asset.id}`; }`. Найди ВСЕ вызовы (grep по репозиторию) и обнови под новую сигнатуру.
+
+4. Починка рендера в page.tsx урока:
+   - IMAGE: схема IMAGE-блока в block-data.ts — посмотри её поля; если там fileAssetId — рендерь `<img src={getFileUrl({ id: fileAssetId })}>`; alt из схемы.
+   - FILE: `<a href={getFileUrl({ id: data.fileAssetId })} download>{data.displayName}</a>`; если fileAssetId пуст — не рендерить ссылку, показать «Файл недоступен».
+   - Никаких `data.key`/`data.filename`/`data.url` для этих типов не остаётся.
+   Проверь редактор (apps/web/components/block-editor/blocks/file-block.tsx и image-блок) — если он тоже строит URL старым способом, обнови на getFileUrl({ id }).
+
+5. Тесты apps/web/__tests__/file-route.test.ts (мок prisma + мок auth + мок storage, стиль — как __tests__/authz.test.ts и import-router.test.ts): нет сессии → 401; файл другой школы (prisma вернул null) → 404; status PENDING → 404; happy path → 302 c presigned-URL в Location.
+
+6. Проверка: pnpm --filter web exec tsc --noEmit, pnpm test, pnpm --filter web build — зелёные (сборка обязательна: tsc и vitest не ловят ошибки резолва бандлера).
+```
+
+---
+
+## ПРОМПТ 29: Question-Images — перенос картинок вопросов в S3 и переписывание @@PLUGINFILE@@
+
+```
+Ты работаешь в папке /home/gpaul/projects/parta5 — монорепо LMS «Парта5». Пакет packages/importer уже умеет: parseFilesManifest (files.xml → BackupFileEntry { id, contenthash, contextid, component, filearea, filename, filepath, mimetype, filesize }), contentPath(backupDir, contenthash) → путь к телу файла, parseBackupQuestions (questions.xml → { questions: ParsedQuestion[], skipped, byId, byEntryId }), importCourse (грузит файлы mod_resource в S3 и создаёт FileAsset). Санитайз — packages/importer/src/questions/sanitize.ts: sanitizeQuestionHtml(html) сейчас ВЫРЕЗАЕТ маркер `@@PLUGINFILE@@/` и возвращает { html, hasPluginFiles }. Прочитай эти файлы, а также src/import-course.ts и src/questions/convert.ts.
+
+ВАЖНО — предусловие: файлы отдаются авторизованным маршрутом `/api/files/<fileAssetId>` (см. docs/architecture/ADR-005-file-serving.md и apps/web/lib/file-url.ts). Именно такой URL кладём в HTML вопросов; S3-URL и presigned в БД НЕ пишем.
+
+Контекст задачи: картинки внутри текста вопросов не переносятся, отчёт лишь предупреждает. Для пилота ПрофСпецРесурса это блокер: в курсе «Билеты ПДД» ВСЕ 1000 вопросов — это картинки с изображением дорожной ситуации, без них вопрос бессмысленный.
+
+Факты, снятые с реального бэкапа PSR (Moodle 5.0.6), опирайся на них:
+- В files.xml картинки вопросов имеют component `question`, filearea `questiontext`, filepath `/`, itemid = id вопроса (тег `<question id="...">` в questions.xml).
+- Записи-директории (filename `.`, mimetype `$@NULL@$`, filesize 0) — отфильтровывать.
+- Ссылка в questiontext выглядит как `<img src="@@PLUGINFILE@@/1.1.png?time=1610994686246">` — с query-строкой и возможным URL-кодированием имени. Правило сопоставления, проверенное на 1000/1000 ссылок: взять часть после `@@PLUGINFILE@@/`, отрезать `?...`, применить decodeURIComponent → сравнить с filename.
+- Файлов вопросов 1475 (261 МБ), а реально нужных — 998 (189 МБ): есть «сироты» (загружены, но не упомянуты) и дубли по contenthash. Грузим ТОЛЬКО упомянутые, дедуп по contenthash.
+- В этом бэкапе других question-filearea (answer, answerfeedback) нет — их не поддерживаем, но если встретились, пиши предупреждение в отчёт.
+
+Задача:
+
+1. sanitize.ts: sanitizeQuestionHtml(html, resolve?) — второй необязательный аргумент `resolve: (filename: string) => string | null`.
+   - Найди все вхождения `@@PLUGINFILE@@/<ref>`; для каждого вычисли filename по правилу выше и вызови resolve.
+   - Вернул URL → подставить его в src вместо всего `@@PLUGINFILE@@/<ref>` (вместе с query).
+   - Вернул null / resolve не передан → прежнее поведение (вырезать маркер), и такой файл считается неразрешённым.
+   - Возвращай { html, hasPluginFiles, unresolvedFiles: string[] }. В allowedAttributes у img оставь src/alt/width/height (уже так) — убедись, что относительный `/api/files/<uuid>` не режется sanitize-html (при необходимости настрой allowedSchemesAppliedToAttributes / allowProtocolRelative).
+   - Обнови вызов в convert.ts: ParsedQuestion получает поля `pluginFileNames: string[]` (имена, на которые ссылается вопрос) и `hasPluginFiles`; санитайз в convert.ts по-прежнему БЕЗ resolve (на этом этапе файлы ещё не загружены) — но HTML с плейсхолдерами не должен потеряться: сохрани исходный questiontext в ParsedQuestion как `rawPromptHtml`, чтобы import-course мог пересобрать prompt после загрузки.
+
+2. packages/importer/src/questions/question-files.ts:
+   - `collectQuestionFiles(files: BackupFileEntry[]): Map<number, BackupFileEntry[]>` — по itemid, только component 'question' + filearea 'questiontext', без директорий.
+   - `otherQuestionFileareas(files): string[]` — прочие question-filearea для предупреждений.
+
+3. src/import-course.ts, ветка квизов (сейчас в ней parseBackupQuestions + создание Question):
+   - Один раз на импорт: parseFilesManifest + collectQuestionFiles.
+   - Для каждого разобранного вопроса, у которого есть pluginFileNames: для каждого нужного файла — дедуп по contenthash через Map<contenthash, fileAssetId> в рамках импорта; новый файл → uuid = crypto.randomUUID(), key = buildKey(schoolId, 'files', uuid, filename), storage.putObjectFromPath(key, contentPath(backupDir, contenthash), mimetype ?? 'application/octet-stream'), FileAsset (schoolId, uploaderId = createdById, key, originalName = filename, mimeType, sizeBytes = filesize, status READY). Ключи добавляй в тот же список для S3-отката, что уже используется для mod_resource.
+   - Затем пересобери prompt: sanitizeQuestionHtml(rawPromptHtml, (name) => fileAssetId ? `/api/files/${fileAssetId}` : null) и подставь в data.prompt перед записью Question (data всё так же валидируется questionData.parse).
+   - Неразрешённые файлы → warning «вопрос X: файл Y не найден в бэкапе».
+   - dryRun: файлы НЕ грузим и FileAsset не пишем, но считаем: сколько уникальных файлов и байт добавится.
+   - ImportReport: в поле files учитывай картинки вопросов; добавь `questionFiles: { count: number, totalBytes: number }`; report-format.ts — строка «Картинки вопросов: N (X.X МБ)». Предупреждение про @@PLUGINFILE@@ («не переносятся в MVP») из прошлой версии УБЕРИ — теперь переносятся; вместо него предупреждай только про неразрешённые и про прочие fileareas.
+
+4. Тесты:
+   - __tests__/questions/sanitize.test.ts: resolve подставляет URL (в т.ч. когда ref с query и %-кодированием), resolve → null оставляет прежнее поведение и попадает в unresolvedFiles, `/api/files/<uuid>` переживает санитайз.
+   - __tests__/questions/question-files.test.ts: группировка по itemid, отсев директорий, otherQuestionFileareas.
+   - __tests__/import-course.test.ts: расширь фикстуру minimal-backup — в questions.xml у multichoice-вопроса questiontext с `<img src="@@PLUGINFILE@@/pic.png?time=1">`, в files.xml — запись question/questiontext (itemid = id этого вопроса) + директория, тело в files/<ab>/<hash>. Проверь на dryRun: questionFiles.count === 1, байты сходятся, S3 не вызывался (фейковый StorageAdapter фиксирует вызовы). Отдельный тест дедупа: два вопроса ссылаются на файлы с одинаковым contenthash → загрузка одна.
+
+5. Проверка: pnpm --filter @parta5/importer test, pnpm --filter @parta5/importer typecheck, pnpm typecheck, pnpm test — зелёные.
 ```
