@@ -4,6 +4,7 @@ import {
   CourseStatus,
   ContentBlockType,
   EnrollmentRole,
+  QuestionType,
   Prisma,
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -548,6 +549,8 @@ async function main() {
     },
   ];
 
+  let firstLessonId: string | null = null;
+
   for (const modDef of modulesData) {
     const existingMod = await prisma.module.findFirst({
       where: { courseId: demoCourse.id, order: modDef.order },
@@ -595,10 +598,205 @@ async function main() {
           })),
         });
       }
+
+      if (modDef.order === 1 && lessDef.order === 1) {
+        firstLessonId = lesson.id;
+      }
     }
   }
 
-  console.log('Seed complete: 2 schools, 5 users, 2 courses, 3 modules, 8 lessons, ~40 blocks');
+  // ── Demo quiz: question bank + questions + quiz ───────────────────────────
+  const runningBank =
+    (await prisma.questionBank.findFirst({
+      where: { schoolId: runstart.id, name: 'Основы бега' },
+    })) ??
+    (await prisma.questionBank.create({
+      data: {
+        schoolId: runstart.id,
+        name: 'Основы бега',
+        createdById: rsTeacher.id,
+      },
+    }));
+
+  type QuestionDef = {
+    name: string;
+    type: QuestionType;
+    points: number;
+    data: Prisma.InputJsonValue;
+  };
+
+  const questionDefs: QuestionDef[] = [
+    {
+      name: 'Правильная постановка стопы',
+      type: QuestionType.MULTICHOICE,
+      points: 2,
+      data: {
+        type: 'MULTICHOICE',
+        prompt: 'Какая постановка стопы рекомендуется начинающим бегунам?',
+        single: true,
+        shuffleChoices: false,
+        choices: [
+          { id: 'a', text: 'Пяточная', correct: false },
+          {
+            id: 'b',
+            text: 'Средняя (на свод стопы)',
+            correct: true,
+            feedback:
+              'Верно — средняя постановка снижает ударную нагрузку на колени и тазобедренный сустав.',
+          },
+          { id: 'c', text: 'Носочная', correct: false },
+          { id: 'd', text: 'Любая, разницы нет', correct: false },
+        ],
+        defaultPoints: 2,
+      },
+    },
+    {
+      name: 'Пульсовые зоны',
+      type: QuestionType.MULTICHOICE,
+      points: 2,
+      data: {
+        type: 'MULTICHOICE',
+        prompt: 'Как понять, что вы бежите в комфортном аэробном темпе?',
+        single: true,
+        shuffleChoices: false,
+        choices: [
+          {
+            id: 'a',
+            text: 'Вы можете разговаривать фразами, не задыхаясь',
+            correct: true,
+            feedback: 'Верно — разговорный темп — главный индикатор аэробной зоны.',
+          },
+          { id: 'b', text: 'Пульс выше 90% от максимального', correct: false },
+          { id: 'c', text: 'Вы задыхаетесь через 30 секунд бега', correct: false },
+          { id: 'd', text: 'Скорость выше 15 км/ч', correct: false },
+        ],
+        defaultPoints: 2,
+      },
+    },
+    {
+      name: 'Экипировка для зимней пробежки',
+      type: QuestionType.MULTICHOICE,
+      points: 2,
+      data: {
+        type: 'MULTICHOICE',
+        prompt: 'Что стоит взять с собой на зимнюю пробежку? (выберите два варианта)',
+        single: false,
+        shuffleChoices: false,
+        choices: [
+          { id: 'a', text: 'Влагоотводящее термобельё', correct: true },
+          { id: 'b', text: 'Хлопковую футболку', correct: false },
+          { id: 'c', text: 'Перчатки или варежки', correct: true },
+          { id: 'd', text: 'Солнцезащитные очки категории 4', correct: false },
+        ],
+        defaultPoints: 2,
+      },
+    },
+    {
+      name: 'Разминка перед бегом обязательна',
+      type: QuestionType.TRUEFALSE,
+      points: 2,
+      data: {
+        type: 'TRUEFALSE',
+        prompt: 'Разминка перед пробежкой обязательна, особенно в холодную погоду.',
+        correctAnswer: true,
+        defaultPoints: 2,
+      },
+    },
+    {
+      name: 'Минимальная длительность разминки',
+      type: QuestionType.SHORTANSWER,
+      points: 2,
+      data: {
+        type: 'SHORTANSWER',
+        prompt: 'Сколько минут должна длиться разминка перед бегом как минимум?',
+        acceptedAnswers: ['10', 'десять'],
+        caseSensitive: false,
+        defaultPoints: 2,
+      },
+    },
+  ];
+
+  const questions = [];
+  for (const qDef of questionDefs) {
+    const question =
+      (await prisma.question.findFirst({
+        where: { bankId: runningBank.id, name: qDef.name },
+      })) ??
+      (await prisma.question.create({
+        data: {
+          schoolId: runstart.id,
+          bankId: runningBank.id,
+          type: qDef.type,
+          name: qDef.name,
+          data: qDef.data,
+          createdById: rsTeacher.id,
+        },
+      }));
+    questions.push({ question, points: qDef.points });
+  }
+
+  const quiz =
+    (await prisma.quiz.findFirst({
+      where: { schoolId: runstart.id, title: 'Проверка знаний: основы бега' },
+    })) ??
+    (await prisma.quiz.create({
+      data: {
+        schoolId: runstart.id,
+        title: 'Проверка знаний: основы бега',
+        // "Порог сдачи (%)" в UI на деле сравнивается напрямую с суммой баллов
+        // (см. quiz-player.tsx), поэтому 60% от 10 максимальных баллов = 6.
+        passingScore: 6,
+        maxAttempts: 3,
+        timeLimitSeconds: 600,
+        createdById: rsTeacher.id,
+      },
+    }));
+
+  for (const [i, { question, points }] of questions.entries()) {
+    const order = i + 1;
+    const existingQuizQuestion = await prisma.quizQuestion.findUnique({
+      where: { quizId_questionId: { quizId: quiz.id, questionId: question.id } },
+    });
+
+    if (!existingQuizQuestion) {
+      await prisma.quizQuestion.create({
+        data: {
+          schoolId: runstart.id,
+          quizId: quiz.id,
+          questionId: question.id,
+          order,
+          points,
+        },
+      });
+    }
+  }
+
+  if (firstLessonId) {
+    const existingQuizBlock = await prisma.contentBlock.findFirst({
+      where: { lessonId: firstLessonId, type: ContentBlockType.QUIZ },
+    });
+
+    if (!existingQuizBlock) {
+      const maxOrder = await prisma.contentBlock.aggregate({
+        where: { lessonId: firstLessonId },
+        _max: { order: true },
+      });
+
+      await prisma.contentBlock.create({
+        data: {
+          lessonId: firstLessonId,
+          schoolId: runstart.id,
+          type: ContentBlockType.QUIZ,
+          data: { quizId: quiz.id, title: quiz.title },
+          order: (maxOrder._max.order ?? 0) + 1,
+        },
+      });
+    }
+  }
+
+  console.log(
+    'Seed complete: 2 schools, 5 users, 2 courses, 3 modules, 8 lessons, ~40 blocks, 1 quiz',
+  );
 }
 
 main()

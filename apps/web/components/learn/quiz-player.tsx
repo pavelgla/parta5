@@ -137,6 +137,7 @@ function QuizCard({
       ) : (
         <button
           type="button"
+          data-testid="quiz-start-button"
           onClick={hasActive ? onContinue : onStart}
           disabled={loading || starting}
           className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
@@ -329,6 +330,7 @@ function QuizRunner({
       <div className="flex items-center justify-between pt-2">
         <button
           type="button"
+          data-testid="quiz-back-button"
           onClick={() => goTo(Math.max(index - 1, 0))}
           disabled={index === 0}
           className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors"
@@ -336,13 +338,14 @@ function QuizRunner({
           Назад
         </button>
 
-        <span className="text-xs text-gray-400">
+        <span data-testid="quiz-save-state" className="text-xs text-gray-400">
           {saveState === 'saving' ? 'Сохранение…' : saveState === 'saved' ? 'Сохранено' : ''}
         </span>
 
         {index < sorted.length - 1 ? (
           <button
             type="button"
+            data-testid="quiz-next-button"
             onClick={() => goTo(index + 1)}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
           >
@@ -351,6 +354,7 @@ function QuizRunner({
         ) : (
           <button
             type="button"
+            data-testid="quiz-submit-button"
             onClick={handleSubmitClick}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
           >
@@ -401,6 +405,7 @@ function ConfirmSubmitDialog({
           </button>
           <button
             type="button"
+            data-testid="quiz-confirm-submit-button"
             onClick={onConfirm}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
           >
@@ -437,8 +442,13 @@ function QuestionForm({
     }
 
     return (
-      <div className="space-y-3">
-        <p className="whitespace-pre-wrap text-sm font-medium text-gray-900">{data.prompt}</p>
+      <div data-testid="question-container" className="space-y-3">
+        <p
+          data-testid="question-prompt"
+          className="whitespace-pre-wrap text-sm font-medium text-gray-900"
+        >
+          {data.prompt}
+        </p>
         <div className="space-y-2">
           {data.choices.map((choice) => (
             <label
@@ -448,6 +458,7 @@ function QuestionForm({
               <input
                 type={data.single ? 'radio' : 'checkbox'}
                 name="quiz-choice"
+                data-testid={`choice-${choice.id}`}
                 checked={current.includes(choice.id)}
                 onChange={() => toggle(choice.id)}
               />
@@ -462,11 +473,17 @@ function QuestionForm({
   if (data.type === 'TRUEFALSE') {
     const current = (value as { value: boolean } | undefined)?.value;
     return (
-      <div className="space-y-3">
-        <p className="whitespace-pre-wrap text-sm font-medium text-gray-900">{data.prompt}</p>
+      <div data-testid="question-container" className="space-y-3">
+        <p
+          data-testid="question-prompt"
+          className="whitespace-pre-wrap text-sm font-medium text-gray-900"
+        >
+          {data.prompt}
+        </p>
         <div className="flex gap-2">
           <button
             type="button"
+            data-testid="truefalse-true"
             onClick={() => onChange({ value: true })}
             className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-colors ${
               current === true
@@ -478,6 +495,7 @@ function QuestionForm({
           </button>
           <button
             type="button"
+            data-testid="truefalse-false"
             onClick={() => onChange({ value: false })}
             className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-colors ${
               current === false
@@ -494,10 +512,16 @@ function QuestionForm({
 
   const current = (value as { text: string } | undefined)?.text ?? '';
   return (
-    <div className="space-y-3">
-      <p className="whitespace-pre-wrap text-sm font-medium text-gray-900">{data.prompt}</p>
+    <div data-testid="question-container" className="space-y-3">
+      <p
+        data-testid="question-prompt"
+        className="whitespace-pre-wrap text-sm font-medium text-gray-900"
+      >
+        {data.prompt}
+      </p>
       <input
         type="text"
+        data-testid="shortanswer-input"
         value={current}
         onChange={(e) => onChange({ text: e.target.value })}
         placeholder="Введите ответ…"
@@ -524,12 +548,16 @@ function QuizResult({
     <div className="space-y-5">
       <div>
         <h3 className="text-lg font-semibold text-gray-900">Результат теста</h3>
-        <p className="mt-1 text-2xl font-bold text-gray-900">
+        <p data-testid="quiz-score" className="mt-1 text-2xl font-bold text-gray-900">
           {result.score} / {result.maxScore}{' '}
           <span className="text-base font-normal text-gray-500">({percent}%)</span>
         </p>
         {passed != null && (
-          <p className={`mt-1 text-sm font-medium ${passed ? 'text-green-600' : 'text-red-600'}`}>
+          <p
+            data-testid="quiz-passed"
+            data-passed={passed}
+            className={`mt-1 text-sm font-medium ${passed ? 'text-green-600' : 'text-red-600'}`}
+          >
             {passed ? 'Тест пройден' : 'Тест не пройден'}
           </p>
         )}
@@ -549,6 +577,7 @@ function QuizResult({
       {canRetry && (
         <button
           type="button"
+          data-testid="quiz-retry-button"
           onClick={onRetry}
           className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
         >
@@ -562,6 +591,8 @@ function QuizResult({
 function QuestionReview({ index, item }: { index: number; item: GradedItem }) {
   return (
     <div
+      data-testid={`question-review-${item.questionId}`}
+      data-correct={item.isCorrect}
       className={`rounded-lg border p-4 ${
         item.isCorrect ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
       }`}
@@ -571,6 +602,7 @@ function QuestionReview({ index, item }: { index: number; item: GradedItem }) {
           {index}. {item.data.prompt}
         </p>
         <span
+          data-testid="correctness-badge"
           className={`shrink-0 text-xs font-semibold ${
             item.isCorrect ? 'text-green-700' : 'text-red-700'
           }`}
