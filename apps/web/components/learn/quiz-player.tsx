@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { inferRouterOutputs } from '@trpc/server';
 import { ListChecks } from 'lucide-react';
+import { isPassed, scorePercent } from '@parta5/quiz';
 import { trpc } from '@/lib/trpc/react';
 import type { attemptRouter } from '@/server/routers/attempt';
 
@@ -540,8 +541,8 @@ function QuizResult({
   canRetry: boolean;
   onRetry: () => void;
 }) {
-  const percent = result.maxScore > 0 ? Math.round((result.score / result.maxScore) * 100) : 0;
-  const passed = result.passingScore != null ? result.score >= result.passingScore : null;
+  const percent = scorePercent(result.score, result.maxScore);
+  const passed = isPassed(result.score, result.maxScore, result.passingScore);
   const sorted = [...result.items].sort((a, b) => a.order - b.order);
 
   return (

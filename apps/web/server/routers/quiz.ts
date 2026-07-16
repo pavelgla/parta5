@@ -39,7 +39,7 @@ export const quizRouter = router({
         description: z.string().optional(),
         timeLimitSeconds: z.number().int().positive().optional(),
         maxAttempts: z.number().int().positive().optional(),
-        passingScore: z.number().min(0).optional(),
+        passingScore: z.number().min(0).max(100).optional(), // percentage threshold
         shuffleQuestions: z.boolean().default(false),
       }),
     )
@@ -60,7 +60,7 @@ export const quizRouter = router({
         description: z.string().optional().nullable(),
         timeLimitSeconds: z.number().int().positive().optional().nullable(),
         maxAttempts: z.number().int().positive().optional().nullable(),
-        passingScore: z.number().min(0).optional().nullable(),
+        passingScore: z.number().min(0).max(100).optional().nullable(), // percentage threshold
         shuffleQuestions: z.boolean().optional(),
       }),
     )

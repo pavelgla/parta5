@@ -27,3 +27,5 @@ export type {
   SnapshotItem,
 } from './finalize.js';
 export { computeAttemptScore } from './finalize.js';
+
+export { isPassed, scorePercent } from './passing.js';

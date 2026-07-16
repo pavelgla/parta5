@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { isPassed, scorePercent } from '@parta5/quiz';
 import { trpcClient } from '@/lib/trpc/client';
 
 interface QuizColumn {
@@ -39,8 +40,8 @@ function GradebookCell({ cell, passingScore }: { cell: Cell; passingScore: numbe
     return <span className="text-gray-300">—</span>;
   }
 
-  const percent = cell.maxScore > 0 ? Math.round((cell.bestScore / cell.maxScore) * 100) : 0;
-  const passed = passingScore != null && cell.bestScore >= passingScore;
+  const percent = scorePercent(cell.bestScore, cell.maxScore);
+  const passed = isPassed(cell.bestScore, cell.maxScore, passingScore) ?? false;
 
   return (
     <div

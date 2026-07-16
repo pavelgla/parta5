@@ -745,7 +745,7 @@ async function main() {
         title: 'Проверка знаний: основы бега',
         // "Порог сдачи (%)" в UI на деле сравнивается напрямую с суммой баллов
         // (см. quiz-player.tsx), поэтому 60% от 10 максимальных баллов = 6.
-        passingScore: 6,
+        passingScore: 60,
         maxAttempts: 3,
         timeLimitSeconds: 600,
         createdById: rsTeacher.id,

@@ -372,6 +372,7 @@ model Quiz {
   description      String?
   timeLimitSeconds Int?
   maxAttempts      Int?
+  /// Percentage threshold to pass, 0..100 (not an absolute point count)
   passingScore     Float?
   shuffleQuestions Boolean  @default(false)
   createdById      String   @db.Uuid
