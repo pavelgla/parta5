@@ -1,7 +1,7 @@
 ---
 type: project
 status: active
-last_active: 2026-07-15
+last_active: 2026-07-16
 phase: A (hardening, суперплан 2026-07)
 phase_status: not_started
 stack: [Next.js 15, tRPC v11, Prisma, PostgreSQL 16, Auth.js v5, Tailwind v4, pnpm, Turborepo]
