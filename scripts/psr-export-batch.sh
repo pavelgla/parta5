@@ -211,7 +211,11 @@ export_one_course() {
 
   local host_tmp_dir="$MOODLE_DATA_HOST/$TMP_SUBDIR"
   local container_tmp_dir="$MOODLE_DATA_CONTAINER/$TMP_SUBDIR"
-  mkdir -p "$host_tmp_dir"
+  # Каталог создаём ИЗНУТРИ контейнера от имени того же пользователя, под которым
+  # запускается backup.php. Созданный на хосте каталог принадлежит хостовому
+  # пользователю, и backup.php падает с «Destination directory does not exists or
+  # not writable» — молча, с нулевым кодом возврата.
+  docker exec -u "$EXEC_USER" "$MOODLE_CONTAINER" mkdir -p "$container_tmp_dir"
 
   local start_ts end_ts duration
   start_ts="$(date +%s)"
