@@ -104,6 +104,12 @@ export function CourseCard({ course, variant }: CourseCardProps) {
               >
                 Предпросмотр
               </Link>
+              <Link
+                href={`/courses/${course.id}/students` as Route}
+                className="text-sm font-medium text-gray-500 hover:underline"
+              >
+                Слушатели
+              </Link>
             </>
           ) : (
             <Link
