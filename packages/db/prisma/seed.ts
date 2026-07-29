@@ -794,8 +794,28 @@ async function main() {
     }
   }
 
+  // ── Demo group (RunStart) ──────────────────────────────────────────────────
+  const runstartGroup = await prisma.group.upsert({
+    where: { schoolId_name: { schoolId: runstart.id, name: 'Группа 1' } },
+    update: {},
+    create: {
+      schoolId: runstart.id,
+      name: 'Группа 1',
+    },
+  });
+
+  await prisma.groupMembership.upsert({
+    where: { groupId_userId: { groupId: runstartGroup.id, userId: rsStudent.id } },
+    update: {},
+    create: {
+      schoolId: runstart.id,
+      groupId: runstartGroup.id,
+      userId: rsStudent.id,
+    },
+  });
+
   console.log(
-    'Seed complete: 2 schools, 5 users, 2 courses, 3 modules, 8 lessons, ~40 blocks, 1 quiz',
+    'Seed complete: 2 schools, 5 users, 2 courses, 3 modules, 8 lessons, ~40 blocks, 1 quiz, 1 group',
   );
 }
 

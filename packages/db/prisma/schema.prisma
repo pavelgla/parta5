@@ -99,6 +99,7 @@ model School {
   users         User[]
   courses       Course[]
   questionBanks QuestionBank[]
+  groups        Group[]
 }
 
 model User {
@@ -108,6 +109,7 @@ model User {
   name           String
   role           UserRole
   schoolId       String?  @db.Uuid
+  isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
 
   school             School?           @relation(fields: [schoolId], references: [id])
@@ -122,6 +124,7 @@ model User {
   quizzes            Quiz[]            @relation("QuizCreator")
   quizAttempts       QuizAttempt[]     @relation("QuizAttemptUser")
   courseImports      CourseImport[]    @relation("CourseImportCreator")
+  groupMemberships   GroupMembership[]
 }
 
 model Course {
@@ -437,4 +440,36 @@ model QuizResponse {
   attempt QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
   @@unique([attemptId, questionId])
+}
+
+// ──────────────────────────────────────────────────────────────
+// Users & groups (Stage D)
+// ──────────────────────────────────────────────────────────────
+
+model Group {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId  String   @db.Uuid
+  name      String
+  createdAt DateTime @default(now())
+
+  school      School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  memberships GroupMembership[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+}
+
+model GroupMembership {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId  String   @db.Uuid
+  groupId   String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([schoolId])
+  @@index([userId])
 }
