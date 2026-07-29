@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<activity id="17" moduleid="17" modulename="supervideo" contextid="304">
+  <supervideo id="11">
+    <name>Первая помощь на месте</name>
+    <intro>$@NULL@$</intro>
+    <introformat>1</introformat>
+    <origem>0</origem>
+    <videourl>file</videourl>
+    <playersize>1</playersize>
+    <showcontrols>1</showcontrols>
+    <autoplay>0</autoplay>
+    <timemodified>1704067200</timemodified>
+  </supervideo>
+</activity>

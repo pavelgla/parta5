@@ -174,6 +174,140 @@ describe('importCourse (sequence handling)', () => {
   });
 });
 
+describe('importCourse (supervideo activity)', () => {
+  it('turns an external videourl into a VIDEO_EMBED block and skips "file" with a reason', async () => {
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'parta5-import-course-supervideo-'));
+    try {
+      await mkdir(path.join(tmpDir, 'sections', 'section_1'), { recursive: true });
+      await mkdir(path.join(tmpDir, 'activities', 'supervideo_1'), { recursive: true });
+      await mkdir(path.join(tmpDir, 'activities', 'supervideo_2'), { recursive: true });
+
+      await writeFile(
+        path.join(tmpDir, 'files.xml'),
+        '<?xml version="1.0" encoding="UTF-8"?>\n<files>\n</files>\n',
+        'utf-8',
+      );
+
+      await writeFile(
+        path.join(tmpDir, 'moodle_backup.xml'),
+        `<?xml version="1.0" encoding="UTF-8"?>
+<moodle_backup>
+  <information>
+    <moodle_version>2024100700</moodle_version>
+    <moodle_release>5.0.6</moodle_release>
+    <backup_date>1735689600</backup_date>
+    <original_course_fullname>Supervideo Course</original_course_fullname>
+    <original_course_shortname>supervideocourse</original_course_shortname>
+    <contents>
+      <activities>
+        <activity>
+          <moduleid>1</moduleid>
+          <sectionid>1</sectionid>
+          <modulename>supervideo</modulename>
+          <title>Устройство БПЛА</title>
+          <directory>activities/supervideo_1</directory>
+        </activity>
+        <activity>
+          <moduleid>2</moduleid>
+          <sectionid>1</sectionid>
+          <modulename>supervideo</modulename>
+          <title>Первая помощь на месте</title>
+          <directory>activities/supervideo_2</directory>
+        </activity>
+      </activities>
+      <sections>
+        <section>
+          <sectionid>1</sectionid>
+          <title>Only section</title>
+          <directory>sections/section_1</directory>
+        </section>
+      </sections>
+    </contents>
+  </information>
+</moodle_backup>
+`,
+        'utf-8',
+      );
+
+      await writeFile(
+        path.join(tmpDir, 'sections', 'section_1', 'section.xml'),
+        `<?xml version="1.0" encoding="UTF-8"?>
+<section id="1">
+  <id>1</id>
+  <number>1</number>
+  <name>Only section</name>
+  <summary>$@NULL@$</summary>
+  <sequence>1,2</sequence>
+  <visible>1</visible>
+</section>
+`,
+        'utf-8',
+      );
+
+      await writeFile(
+        path.join(tmpDir, 'activities', 'supervideo_1', 'supervideo.xml'),
+        `<?xml version="1.0" encoding="UTF-8"?>
+<activity id="1" moduleid="1" modulename="supervideo" contextid="101">
+  <supervideo id="1">
+    <name>Устройство БПЛА</name>
+    <intro>$@NULL@$</intro>
+    <introformat>1</introformat>
+    <origem>1</origem>
+    <videourl>https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrSt-uvWxYz/view?usp=drive_link</videourl>
+    <playersize>1</playersize>
+    <showcontrols>1</showcontrols>
+    <autoplay>0</autoplay>
+    <timemodified>1704067200</timemodified>
+  </supervideo>
+</activity>
+`,
+        'utf-8',
+      );
+
+      await writeFile(
+        path.join(tmpDir, 'activities', 'supervideo_2', 'supervideo.xml'),
+        `<?xml version="1.0" encoding="UTF-8"?>
+<activity id="2" moduleid="2" modulename="supervideo" contextid="102">
+  <supervideo id="2">
+    <name>Первая помощь на месте</name>
+    <intro>$@NULL@$</intro>
+    <introformat>1</introformat>
+    <origem>0</origem>
+    <videourl>file</videourl>
+    <playersize>1</playersize>
+    <showcontrols>1</showcontrols>
+    <autoplay>0</autoplay>
+    <timemodified>1704067200</timemodified>
+  </supervideo>
+</activity>
+`,
+        'utf-8',
+      );
+
+      const storage = createFakeStorage();
+      const report = await importCourse({
+        backupDir: tmpDir,
+        schoolId: '11111111-1111-1111-1111-111111111111',
+        createdById: '22222222-2222-2222-2222-222222222222',
+        storage,
+        dryRun: true,
+      });
+
+      expect(report.lessons).toBe(1);
+      expect(report.blocks).toBe(1);
+      expect(report.skippedActivities).toEqual([
+        {
+          modulename: 'supervideo',
+          title: 'Первая помощь на месте',
+          reason: 'Видео загружено в Moodle, внешней ссылки нет',
+        },
+      ]);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('importCourse (question file dedup)', () => {
   it('counts a file shared by two questions (same contenthash) only once', async () => {
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'parta5-import-course-dedup-'));

@@ -13,6 +13,7 @@ import { parsePage } from './activities/page.js';
 import { parseLabel } from './activities/label.js';
 import { parseResource } from './activities/resource.js';
 import { parseUrl } from './activities/url.js';
+import { parseSupervideo } from './activities/supervideo.js';
 import { parseQuiz } from './activities/quiz.js';
 import { getActivityContextId } from './activities/context.js';
 import { parseBackupQuestions } from './questions/backup-questions.js';
@@ -133,6 +134,14 @@ async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<I
         skippedActivities.push(skipReasonFor(activity));
         continue;
       }
+      if ('skipReason' in lesson) {
+        skippedActivities.push({
+          modulename: activity.modulename,
+          title: activity.title,
+          reason: lesson.skipReason,
+        });
+        continue;
+      }
       lessons.push(lesson.lesson);
       fileCount += lesson.fileCount;
       fileTotalBytes += lesson.fileTotalBytes;
@@ -243,13 +252,20 @@ interface BuiltLesson {
   fileTotalBytes: number;
 }
 
+/** Returned instead of `null` when the activity type is recognized but a
+ * specific instance can't be imported — gives the report a precise reason
+ * instead of the generic "unknown activity type" message. */
+interface SkippedLesson {
+  skipReason: string;
+}
+
 async function buildLesson(
   backupDir: string,
   activity: ManifestActivity,
   filesManifest: BackupFileEntry[],
   warnings: string[],
   quizCtx: QuizContext,
-): Promise<BuiltLesson | null> {
+): Promise<BuiltLesson | SkippedLesson | null> {
   if (activity.modulename === 'page') {
     const page = await parsePage(backupDir, activity.directory);
     const block: PlannedBlock = {
@@ -298,6 +314,15 @@ async function buildLesson(
           html: `<p><a href="${url.externalurl}">${url.name}</a></p>`,
           text: url.name,
         };
+    return { lesson: { title: activity.title, blocks: [block] }, fileCount: 0, fileTotalBytes: 0 };
+  }
+
+  if (activity.modulename === 'supervideo') {
+    const supervideo = await parseSupervideo(backupDir, activity.directory);
+    if (!/^https?:\/\//i.test(supervideo.videourl)) {
+      return { skipReason: 'Видео загружено в Moodle, внешней ссылки нет' };
+    }
+    const block: PlannedBlock = { kind: 'VIDEO_EMBED', url: supervideo.videourl };
     return { lesson: { title: activity.title, blocks: [block] }, fileCount: 0, fileTotalBytes: 0 };
   }
 

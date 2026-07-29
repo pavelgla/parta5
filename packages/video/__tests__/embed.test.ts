@@ -118,6 +118,34 @@ describe('parseEmbedUrl', () => {
     });
   });
 
+  describe('Google Drive', () => {
+    it('parses a share link with usp=drive_link', () => {
+      const result = parseEmbedUrl(
+        'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrSt-uvWxYz/view?usp=drive_link',
+      );
+      expect(result).not.toBeNull();
+      expect(result!.provider).toBe('google-drive');
+      expect(result!.embedUrl).toBe(
+        'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrSt-uvWxYz/preview',
+      );
+      expect(result!.videoId).toBe('1AbCdEfGhIjKlMnOpQrSt-uvWxYz');
+    });
+
+    it('parses a share link with usp=sharing', () => {
+      const result = parseEmbedUrl('https://drive.google.com/file/d/1abc123/view?usp=sharing');
+      expect(result).not.toBeNull();
+      expect(result!.provider).toBe('google-drive');
+      expect(result!.embedUrl).toBe('https://drive.google.com/file/d/1abc123/preview');
+    });
+
+    it('parses a link that is already in preview form', () => {
+      const result = parseEmbedUrl('https://drive.google.com/file/d/1abc123/preview');
+      expect(result).not.toBeNull();
+      expect(result!.provider).toBe('google-drive');
+      expect(result!.embedUrl).toBe('https://drive.google.com/file/d/1abc123/preview');
+    });
+  });
+
   describe('invalid URLs', () => {
     it('returns null for random URL', () => {
       expect(parseEmbedUrl('https://example.com/video/123')).toBeNull();

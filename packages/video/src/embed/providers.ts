@@ -54,4 +54,10 @@ export const EMBED_PROVIDERS: EmbedProvider[] = [
     buildEmbedUrl: (match) => `https://dzen.ru/embed/${match[1]}`,
     extractVideoId: (match) => match[1],
   },
+  {
+    provider: 'google-drive',
+    patterns: [/^https?:\/\/drive\.google\.com\/file\/d\/([\w-]+)\//],
+    buildEmbedUrl: (match) => `https://drive.google.com/file/d/${match[1]}/preview`,
+    extractVideoId: (match) => match[1],
+  },
 ];

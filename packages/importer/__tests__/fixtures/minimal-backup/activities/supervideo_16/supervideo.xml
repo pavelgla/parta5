@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<activity id="16" moduleid="16" modulename="supervideo" contextid="303">
+  <supervideo id="10">
+    <name>Устройство БПЛА</name>
+    <intro>$@NULL@$</intro>
+    <introformat>1</introformat>
+    <origem>1</origem>
+    <videourl>https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrSt-uvWxYz/view?usp=drive_link</videourl>
+    <playersize>1</playersize>
+    <showcontrols>1</showcontrols>
+    <autoplay>0</autoplay>
+    <timemodified>1704067200</timemodified>
+  </supervideo>
+</activity>
