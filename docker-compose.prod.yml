@@ -45,7 +45,7 @@ services:
     healthcheck:
       # node:22-alpine (busybox) ships wget; /login не требует сессии/БД-состояния помимо
       # подключения к БД при рендере, поэтому 200/30x с него — достаточный сигнал живости.
-      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000/login']
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:3000/login']
       interval: 10s
       timeout: 5s
       retries: 10
