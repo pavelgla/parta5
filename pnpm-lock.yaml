@@ -242,6 +242,9 @@ importers:
       '@parta5/storage':
         specifier: workspace:*
         version: link:../storage
+      '@parta5/video':
+        specifier: workspace:*
+        version: link:../video
       fast-xml-parser:
         specifier: ^4.0.0
         version: 4.5.7

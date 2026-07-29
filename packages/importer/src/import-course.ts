@@ -20,6 +20,7 @@ import { parseBackupQuestions } from './questions/backup-questions.js';
 import type { ParsedQuestion, SkippedQuestion } from './questions/types.js';
 import type { QuestionData } from '@parta5/quiz';
 import { sanitizeQuestionHtml, htmlToPlainText } from '@parta5/quiz';
+import { parseEmbedUrl } from '@parta5/video';
 import { slugify } from './translit.js';
 import type { ImportReport, SkippedActivity } from './report.js';
 
@@ -428,7 +429,20 @@ type NonQuizBlock = Exclude<PlannedBlock, { kind: 'QUIZ' }>;
 
 function blockData(block: NonQuizBlock, fileAssetId?: string): Record<string, unknown> {
   if (block.kind === 'TEXT') return { html: block.html, text: block.text };
-  if (block.kind === 'VIDEO_EMBED') return { url: block.url };
+  if (block.kind === 'VIDEO_EMBED') {
+    // The player reads `provider`/`embedUrl`, not the raw link: storing only
+    // `url` renders an iframe with an empty src. Unrecognised hosts keep the
+    // link so the block is at least repairable by hand in the editor.
+    const embed = parseEmbedUrl(block.url);
+    return embed === null
+      ? { url: block.url }
+      : {
+          url: block.url,
+          provider: embed.provider,
+          embedUrl: embed.embedUrl,
+          providerVideoId: embed.videoId,
+        };
+  }
   return { fileAssetId, displayName: block.displayName };
 }
 

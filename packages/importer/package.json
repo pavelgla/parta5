@@ -21,7 +21,8 @@
     "nanoid": "^5.0.0",
     "@parta5/quiz": "workspace:*",
     "@parta5/db": "workspace:*",
-    "@parta5/storage": "workspace:*"
+    "@parta5/storage": "workspace:*",
+    "@parta5/video": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
