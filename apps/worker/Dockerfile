@@ -21,4 +21,7 @@ RUN pnpm install --frozen-lockfile --network-concurrency 1
 RUN pnpm --filter @parta5/db exec prisma generate
 
 WORKDIR /app/apps/worker
-CMD ["node", "--import", "tsx/esm", "src/index.ts"]
+# The tsx CLI, not `node --import tsx/esm`: the latter registers only the ESM
+# hook, so extensionless relative imports inside workspace packages compiled as
+# CommonJS (`export * from './with-tenant'` in @parta5/db) fail to resolve.
+CMD ["node_modules/.bin/tsx", "src/index.ts"]
