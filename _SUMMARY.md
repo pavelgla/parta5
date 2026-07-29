@@ -1,9 +1,9 @@
 ---
 type: project
 status: active
-last_active: 2026-07-16
-phase: A (hardening, суперплан 2026-07)
-phase_status: not_started
+last_active: 2026-07-29
+phase: D (пилот ПСР, суперплан 2026-07)
+phase_status: deployed
 stack: [Next.js 15, tRPC v11, Prisma, PostgreSQL 16, Auth.js v5, Tailwind v4, pnpm, Turborepo]
 goal: Open-source LMS для школ 5–11 классов, УДО и ДПО РФ (MPL 2.0) — альтернатива Moodle
 domain: parta5.ru
@@ -83,7 +83,7 @@ docs/
 - [ ] **Этап A** — hardening: RBAC (teacherProcedure/adminProcedure + ownership), RLS на BlockView/FileAsset/VideoAsset/LearningEvent, непривилегированная DB-роль, фикс compose (web без S3/Redis env), enrollment-политика, воркер retry/timeout, vitest в CI + негативные authz-тесты → `v0.2.1`
 - [ ] **Этап B** — квиз-MVP: ADR-004, `@parta5/quiz` (multichoice/truefalse/shortanswer — покрывает 99,997% вопросов PSR), Quiz/QuizAttempt, UI прохождения, мини-журнал + CSV → `v0.3.0-phase2`
 - [ ] **Этап C** — импортер: `packages/importer`, .mbz-парсер, маппинг quiz/resource/page/url, CLI dry-run, тест на реальных .mbz из PSR → `v0.4.0-phase3`
-- [ ] **Этап D** — админ-UI пользователей, CSV-ростер, деплой на sel1, импорт 106 курсов PSR, демо заказчику → `v0.5.0-pilot`
+- [x] **Этап D** — админ-UI пользователей и групп, CSV-ростер (UTF-8/Windows-1251), состав курса, деплой на sel1 → https://psr.parta5.ru, школа ПСР, сквозной сценарий проверен вживую (билет ПДД с картинками → оценка в журнале). Остаток: батч-импорт всех 106 курсов и демо заказчику → `v0.5.0-pilot`
 
 ## Дальнейшие этапы
 
