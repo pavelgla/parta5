@@ -11,6 +11,9 @@ const TEACHER_ROLES: UserRole[] = [UserRole.TEACHER, UserRole.SCHOOL_ADMIN, User
 export default async function CoursesPage() {
   const session = await auth();
   if (!session) redirect('/login');
+  // Управление курсами — только для преподавательских ролей: список здесь включает
+  // черновики. Ученику показываем его учебный кабинет.
+  if (!TEACHER_ROLES.includes(session.user.role)) redirect('/learn');
 
   const caller = await serverCaller();
   const courses = await caller.course.list();
