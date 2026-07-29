@@ -22,6 +22,14 @@ services:
       - default
       - webproxy
 
+  worker:
+    volumes:
+      # Выгрузки Moodle ПСР для батч-импорта: образ воркера содержит весь
+      # workspace вместе с @parta5/importer, поэтому CLI импорта запускается
+      # прямо в нём (`docker compose run --rm worker ...`) — ставить pnpm и
+      # зависимости на хост не нужно.
+      - ${PSR_EXPORT_DIR:-/opt/psr/c7-export}:/import:ro
+
 networks:
   webproxy:
     name: webproxy
