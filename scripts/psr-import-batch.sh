@@ -43,16 +43,44 @@
 #   --limit N               Обработать не более N файлов за этот запуск
 #   --repo-root DIR         Корень репозитория parta5 (по умолчанию: определяется через
 #                          `git rev-parse --show-toplevel`, иначе — каталог на уровень выше
-#                          scripts/)
-#   --pnpm-filter NAME      Имя пакета для `pnpm --filter` (по умолчанию: @parta5/importer)
-#   --pnpm-script NAME      Имя npm-скрипта импортёра (по умолчанию: import:run)
+#                          scripts/). В режиме --runner docker это каталог, из которого
+#                          запускается `docker compose` (там же должны лежать compose-файлы).
+#   --pnpm-filter NAME      Имя пакета для `pnpm --filter` (по умолчанию: @parta5/importer,
+#                          используется только при --runner pnpm)
+#   --pnpm-script NAME      Имя npm-скрипта импортёра (по умолчанию: import:run,
+#                          используется только при --runner pnpm)
 #   --log-dir DIR           Каталог для полных логов каждого курса (по умолчанию: REPORT_DIR/logs)
+#
+#   --runner pnpm|docker    Как запускать импортёр (по умолчанию: pnpm):
+#                            - pnpm   — как раньше, требует pnpm и зависимости монорепо на хосте;
+#                            - docker — через уже собранный образ воркера (`docker compose run`),
+#                                      без установки pnpm/зависимостей на хост. Рекомендуется на
+#                                      боевых серверах (см. docs/deployment/psr-migration.md).
+#   --compose-file FILE     Compose-файл для --runner docker (можно указывать несколько раз,
+#                          порядок сохраняется). По умолчанию: docker-compose.prod.yml и
+#                          docker-compose.sel1.yml (относительно --repo-root).
+#   --service NAME          Имя сервиса в compose для --runner docker (по умолчанию: worker)
+#   --container-import-dir DIR
+#                          Путь внутри контейнера, по которому смонтирован каталог с .mbz,
+#                          для --runner docker (по умолчанию: /import). Хостовый --src-dir
+#                          используется только для поиска и сортировки файлов на хосте —
+#                          импортёру внутри контейнера передаётся
+#                          "<container-import-dir>/<имя файла>", а не хостовый путь.
 #   -h, --help              Эта справка
 #
-# Пример точной команды, которую скрипт выполняет на один файл (реальный импорт):
-#   cd <repo-root> && pnpm --filter @parta5/importer import:run -- \
-#     --file /opt/psr/c7-export/backup-moodle2-course-12-....mbz \
-#     --school psr --user admin@psr.parta5.ru
+# Пример точной команды, которую скрипт выполняет на один файл:
+#
+#   --runner pnpm (по умолчанию):
+#     cd <repo-root> && pnpm --filter @parta5/importer import:run -- \
+#       --file /opt/psr/c7-export/backup-moodle2-course-12-....mbz \
+#       --school psr --user admin@psr.parta5.ru
+#
+#   --runner docker (проверено вручную на sel1, dry-run по реальному курсу ПДД):
+#     cd <repo-root> && docker compose -f docker-compose.prod.yml -f docker-compose.sel1.yml \
+#       run --rm --no-deps -T worker \
+#       node_modules/.bin/tsx ../../packages/importer/src/cli.ts \
+#       --file /import/backup-moodle2-course-12-....mbz \
+#       --school psr --user admin@psr.parta5.ru
 #
 # Что НЕ проверено (см. отчёт задачи S7): реальное время импорта одного курса на боевых
 # объёмах (известно из Stage D: курс "ТЕСТ ПДД" — 52 урока/52 квиза/1035 вопросов — импортировался
@@ -74,6 +102,10 @@ REPO_ROOT=""
 PNPM_FILTER="@parta5/importer"
 PNPM_SCRIPT="import:run"
 LOG_DIR=""
+RUNNER="pnpm"
+declare -a COMPOSE_FILES=()
+SERVICE="worker"
+CONTAINER_IMPORT_DIR="/import"
 
 usage() {
   # Печатает весь шапочный комментарий файла (между shebang и первой пустой
@@ -95,6 +127,10 @@ while [ $# -gt 0 ]; do
     --pnpm-filter) PNPM_FILTER="$2"; shift 2 ;;
     --pnpm-script) PNPM_SCRIPT="$2"; shift 2 ;;
     --log-dir) LOG_DIR="$2"; shift 2 ;;
+    --runner) RUNNER="$2"; shift 2 ;;
+    --compose-file) COMPOSE_FILES+=("$2"); shift 2 ;;
+    --service) SERVICE="$2"; shift 2 ;;
+    --container-import-dir) CONTAINER_IMPORT_DIR="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Неизвестный аргумент: $1" >&2; usage; exit 1 ;;
   esac
@@ -104,6 +140,15 @@ if [ -z "$SCHOOL" ] || [ -z "$USER_EMAIL" ]; then
   echo "ОШИБКА: --school и --user обязательны." >&2
   usage
   exit 1
+fi
+
+case "$RUNNER" in
+  pnpm|docker) ;;
+  *) echo "ОШИБКА: --runner должен быть 'pnpm' или 'docker' (получено: '$RUNNER')." >&2; exit 1 ;;
+esac
+
+if [ "${#COMPOSE_FILES[@]}" -eq 0 ]; then
+  COMPOSE_FILES=(docker-compose.prod.yml docker-compose.sel1.yml)
 fi
 
 [ -n "$STATE_FILE" ] || STATE_FILE="$SRC_DIR/.psr-import-state.tsv"
@@ -127,6 +172,51 @@ fi
 
 mkdir -p "$REPORT_DIR" "$LOG_DIR"
 touch "$STATE_FILE"
+
+# ── Проверки перед стартом в docker-режиме ───────────────────────────────────
+# Делается один раз до цикла по файлам, а не при первой ошибке запуска — чтобы
+# не засыпать экран 106 одинаковыми "сервис не найден" (как уже было со скриптом
+# экспорта).
+check_docker_prereqs() {
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "ОШИБКА: --runner docker выбран, но команда 'docker' не найдена в PATH." >&2
+    exit 1
+  fi
+
+  local compose_args=() cf
+  for cf in "${COMPOSE_FILES[@]}"; do compose_args+=(-f "$cf"); done
+
+  local services
+  if ! services="$(cd "$REPO_ROOT" && docker compose "${compose_args[@]}" config --services 2>&1)"; then
+    echo "ОШИБКА: не удалось прочитать конфигурацию docker compose из $REPO_ROOT (файлы: ${COMPOSE_FILES[*]})." >&2
+    echo "$services" >&2
+    exit 1
+  fi
+
+  if ! printf '%s\n' "$services" | grep -qx "$SERVICE"; then
+    echo "ОШИБКА: сервис '$SERVICE' не найден в конфигурации docker compose (файлы: ${COMPOSE_FILES[*]}, каталог: $REPO_ROOT)." >&2
+    echo "Доступные сервисы:" >&2
+    printf '%s\n' "$services" | sed 's/^/  - /' >&2
+    exit 1
+  fi
+
+  local full_config
+  full_config="$(cd "$REPO_ROOT" && docker compose "${compose_args[@]}" config 2>/dev/null)"
+  if ! printf '%s\n' "$full_config" | awk -v svc="$SERVICE" -v dir="$CONTAINER_IMPORT_DIR" '
+    $0 ~ "^  "svc":[[:space:]]*$" { insvc=1; next }
+    insvc && /^  [A-Za-z0-9_.-]+:[[:space:]]*$/ { insvc=0 }
+    insvc && index($0, dir) { found=1 }
+    END { exit !found }
+  '; then
+    echo "ОШИБКА: в сервисе '$SERVICE' не найден смонтированный каталог '$CONTAINER_IMPORT_DIR'." >&2
+    echo "Проверьте --container-import-dir и volumes сервиса '$SERVICE' в docker-compose*.yml." >&2
+    exit 1
+  fi
+}
+
+if [ "$RUNNER" = "docker" ]; then
+  check_docker_prereqs
+fi
 
 CSV_FILE="$REPORT_DIR/${REPORT_NAME}.csv"
 MD_FILE="$REPORT_DIR/${REPORT_NAME}.md"
@@ -190,7 +280,7 @@ if [ -n "$LIMIT" ]; then
   FILES=("${FILES[@]:0:$LIMIT}")
 fi
 
-echo "Найдено .mbz: ${#FILES[@]} в $SRC_DIR (dry-run=$DRY_RUN)"
+echo "Найдено .mbz: ${#FILES[@]} в $SRC_DIR (dry-run=$DRY_RUN, runner=$RUNNER)"
 
 # ── Импорт одного файла ──────────────────────────────────────────────────────
 run_one() {
@@ -208,11 +298,22 @@ run_one() {
   start_ts="$(date +%s)"
 
   set +e
-  (
-    cd "$REPO_ROOT" && \
-    pnpm --filter "$PNPM_FILTER" "$PNPM_SCRIPT" -- \
-      --file "$file" --school "$SCHOOL" --user "$USER_EMAIL" "${dry_flag[@]}"
-  ) > "$logfile" 2>&1
+  if [ "$RUNNER" = "docker" ]; then
+    local compose_args=() cf
+    for cf in "${COMPOSE_FILES[@]}"; do compose_args+=(-f "$cf"); done
+    (
+      cd "$REPO_ROOT" && \
+      docker compose "${compose_args[@]}" run --rm --no-deps -T "$SERVICE" \
+        node_modules/.bin/tsx ../../packages/importer/src/cli.ts \
+        --file "$CONTAINER_IMPORT_DIR/$base" --school "$SCHOOL" --user "$USER_EMAIL" "${dry_flag[@]}"
+    ) > "$logfile" 2>&1
+  else
+    (
+      cd "$REPO_ROOT" && \
+      pnpm --filter "$PNPM_FILTER" "$PNPM_SCRIPT" -- \
+        --file "$file" --school "$SCHOOL" --user "$USER_EMAIL" "${dry_flag[@]}"
+    ) > "$logfile" 2>&1
+  fi
   local rc=$?
   set -e
 

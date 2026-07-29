@@ -58,12 +58,71 @@ dry-run импорта ВСЕХ 106 курсов
 разбор расхождений по CSV/MD отчётам, точечный повторный импорт при необходимости
 ```
 
+### 1.0 Как запускать импортёр: `--runner docker` (рекомендуется на сервере) vs `--runner pnpm`
+
+`scripts/psr-import-batch.sh` умеет запускать CLI импортёра двумя способами:
+
+- **`--runner docker` (по умолчанию для сервера, но по умолчанию в скрипте — `pnpm`,
+  так что флаг нужно указывать явно)** — через уже собранный образ воркера
+  (`docker compose run --rm --no-deps worker ...`). На sel1 pnpm и зависимости
+  монорепо ставить не нужно: образ `parta5-worker` уже содержит весь workspace,
+  `node_modules`, `tsx` и сгенерированный Prisma-клиент, а также нужные переменные
+  окружения (роль `parta5_app`, доступ к S3/MinIO). Каталог с выгрузками
+  примонтирован в контейнер как `/import` (см. `docker-compose.sel1.yml`,
+  volume `${PSR_EXPORT_DIR:-/opt/psr/c7-export}:/import:ro`).
+- **`--runner pnpm` (значение по умолчанию в скрипте)** — старое поведение,
+  `pnpm --filter @parta5/importer import:run -- ...` на хосте. Требует установленных
+  pnpm и зависимостей монорепо — не нужно и не рекомендуется на sel1, оставлено для
+  локальной разработки/отладки.
+
+Точная команда, которую скрипт формирует в docker-режиме (проверена вручную на sel1,
+dry-run по реальному курсу ПДД отработал — «Модулей: 1, уроков: 52, блоков: 52,
+Квизов: 50, вопросов: 1000»):
+
+```bash
+cd /opt/parta5 && docker compose -f docker-compose.prod.yml -f docker-compose.sel1.yml \
+  run --rm --no-deps -T worker \
+  node_modules/.bin/tsx ../../packages/importer/src/cli.ts \
+  --file "/import/<имя файла>.mbz" --school psr --user admin@psr.parta5.ru [--dry-run]
+```
+
+Обратите внимание: скрипт подставляет **путь внутри контейнера**
+(`--container-import-dir`, по умолчанию `/import`) + имя файла, а не хостовый путь из
+`--src-dir` — хостовый каталог с выгрузками может называться иначе (например,
+`/opt/psr/c7-export`), но внутри контейнера он всегда виден по одному и тому же
+смонтированному пути. `--src-dir` используется только для поиска и сортировки .mbz на
+хосте.
+
+Перед первым реальным прогоном в docker-режиме скрипт сам проверяет (через
+`docker compose config`, без запуска контейнеров), что:
+
+- указанный `--service` (по умолчанию `worker`) существует в compose-конфигурации;
+- у него есть volume, смонтированный по пути `--container-import-dir`.
+
+Если что-то не так — скрипт останавливается с одним внятным сообщением ДО начала
+цикла по 106 файлам, а не сыпет одинаковой ошибкой на каждый курс (на этом уже
+обжигались со скриптом экспорта).
+
+Все примеры команд ниже — для `--runner pnpm` (как было раньше). Для sel1 добавляйте
+`--runner docker` (при необходимости — `--service`/`--compose-file`/
+`--container-import-dir`, если конфигурация отличается от значений по умолчанию).
+
 ### 1.1 Dry-run на уже выгруженных 4 курсах (быстрая проверка конвейера)
 
 ```bash
 ./scripts/psr-import-batch.sh \
   --src-dir /opt/psr/c6-export \
   --school psr --user admin@psr.parta5.ru \
+  --dry-run
+```
+
+На sel1 — тем же, но через docker:
+
+```bash
+./scripts/psr-import-batch.sh \
+  --src-dir /opt/psr/c6-export \
+  --school psr --user admin@psr.parta5.ru \
+  --runner docker \
   --dry-run
 ```
 
@@ -103,8 +162,11 @@ dry-run импорта ВСЕХ 106 курсов
 ./scripts/psr-import-batch.sh \
   --src-dir /opt/psr/c7-export \
   --school psr --user admin@psr.parta5.ru \
+  --runner docker \
   --dry-run
 ```
+
+(без `--runner docker` — то же самое через `pnpm` на хосте, если запускаете не на sel1.)
 
 Итог — `reports/psr-import-dryrun-report.md` и `.csv` с полным списком курсов, сводкой
 по пропущенным типам вопросов и типам активностей Moodle, которые импортёр не
@@ -117,6 +179,7 @@ dry-run импорта ВСЕХ 106 курсов
 ./scripts/psr-import-batch.sh \
   --src-dir /opt/psr/c7-export \
   --school psr --user admin@psr.parta5.ru \
+  --runner docker \
   --limit 20
 ```
 
