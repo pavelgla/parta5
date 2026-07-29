@@ -2,14 +2,38 @@
 
 import { useState } from 'react';
 import { ArrowUp, ArrowDown, X } from 'lucide-react';
+import { htmlToPlainText } from '@parta5/quiz';
 import { trpc } from '@/lib/trpc/react';
-import { QUESTION_TYPE_LABELS, type QuestionType } from '@/components/question-editor/types';
+import {
+  QUESTION_TYPE_LABELS,
+  type QuestionData,
+  type QuestionType,
+} from '@/components/question-editor/types';
 import { AddFromBankModal } from './add-from-bank-modal';
+
+const QUESTION_LABEL_MAX_LENGTH = 80;
 
 interface QuizQuestionItem {
   questionId: string;
   points: number;
-  question: { id: string; type: QuestionType; name: string };
+  // `data` comes over the wire as raw JSON (Prisma.JsonValue) — its shape
+  // matches QuestionData at runtime but isn't validated on this read path.
+  question: { id: string; type: QuestionType; name: string; data?: unknown };
+}
+
+// Prefers the question's own name; imported question banks often leave it
+// blank (or, as with some Moodle exports, just a bare ordinal), so fall back
+// to a cleaned-up, truncated preview of the question prompt.
+function questionDisplayLabel(question: QuizQuestionItem['question']): string {
+  const name = question.name.trim();
+  if (name) return name;
+
+  const data = question.data as Partial<QuestionData> | undefined;
+  const prompt = typeof data?.prompt === 'string' ? data.prompt : '';
+  const plain = htmlToPlainText(prompt).replace(/\s+/g, ' ').trim();
+  if (!plain) return name;
+  if (plain.length <= QUESTION_LABEL_MAX_LENGTH) return plain;
+  return `${plain.slice(0, QUESTION_LABEL_MAX_LENGTH).trimEnd()}…`;
 }
 
 interface Quiz {
@@ -228,7 +252,9 @@ export function QuizEditor({ quiz }: Props) {
               >
                 {QUESTION_TYPE_LABELS[item.question.type]}
               </span>
-              <span className="flex-1 truncate text-sm text-gray-900">{item.question.name}</span>
+              <span className="flex-1 truncate text-sm text-gray-900">
+                {questionDisplayLabel(item.question)}
+              </span>
               <input
                 type="number"
                 min={0}

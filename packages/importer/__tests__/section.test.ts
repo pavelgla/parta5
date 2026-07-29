@@ -9,6 +9,7 @@ describe('parseSection', () => {
     const section = await parseSection(FIXTURE_DIR, 'sections/section_1');
 
     expect(section.id).toBe(1);
+    expect(section.number).toBe(1);
     expect(section.title).toBeNull();
     expect(section.summaryHtml).toBe('<p>Introductory section.</p>');
     expect(section.sequence).toEqual([10, 11]);
@@ -18,6 +19,7 @@ describe('parseSection', () => {
     const section = await parseSection(FIXTURE_DIR, 'sections/section_2');
 
     expect(section.id).toBe(2);
+    expect(section.number).toBe(2);
     expect(section.title).toBe('Chapter 1');
     expect(section.summaryHtml).toBeNull();
     expect(section.sequence).toEqual([12]);

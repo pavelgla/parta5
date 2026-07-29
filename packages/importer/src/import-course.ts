@@ -6,6 +6,7 @@ import type { StorageAdapter } from '@parta5/storage';
 import { buildKey } from '@parta5/storage';
 import { parseManifest, type CourseManifest, type ManifestActivity } from './manifest.js';
 import { parseSection } from './section.js';
+import { resolveModuleTitle } from './module-title.js';
 import { parseFilesManifest, contentPath, type BackupFileEntry } from './files.js';
 import { collectQuestionFiles, otherQuestionFileareas } from './questions/question-files.js';
 import { parsePage } from './activities/page.js';
@@ -17,7 +18,7 @@ import { getActivityContextId } from './activities/context.js';
 import { parseBackupQuestions } from './questions/backup-questions.js';
 import type { ParsedQuestion, SkippedQuestion } from './questions/types.js';
 import type { QuestionData } from '@parta5/quiz';
-import { sanitizeQuestionHtml } from '@parta5/quiz';
+import { sanitizeQuestionHtml, htmlToPlainText } from '@parta5/quiz';
 import { slugify } from './translit.js';
 import type { ImportReport, SkippedActivity } from './report.js';
 
@@ -137,7 +138,11 @@ async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<I
       fileTotalBytes += lesson.fileTotalBytes;
     }
 
-    modules.push({ title: manifestSection.title, order: index, lessons });
+    modules.push({
+      title: resolveModuleTitle(section.title, section.number),
+      order: index,
+      lessons,
+    });
   }
 
   const firstSummary = sections[0]?.summaryHtml ?? null;
@@ -557,7 +562,9 @@ export async function importCourse(opts: ImportCourseOptions): Promise<ImportRep
                 data: {
                   schoolId,
                   title: block.quizName,
-                  description: block.introHtml ?? undefined,
+                  description: block.introHtml
+                    ? htmlToPlainText(block.introHtml) || undefined
+                    : undefined,
                   timeLimitSeconds: block.timelimit > 0 ? block.timelimit : null,
                   maxAttempts: block.attempts > 0 ? block.attempts : null,
                   passingScore: null,

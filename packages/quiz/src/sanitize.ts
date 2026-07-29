@@ -74,3 +74,51 @@ export function sanitizeQuestionHtml(
 
   return { html: sanitized, hasPluginFiles, unresolvedFiles };
 }
+
+const HTML_ENTITIES: Record<string, string> = {
+  '&nbsp;': ' ',
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#039;': "'",
+  '&apos;': "'",
+  '&laquo;': '«',
+  '&raquo;': '»',
+  '&mdash;': '—',
+  '&ndash;': '–',
+  '&hellip;': '…',
+};
+
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&#x([0-9a-fA-F]+);/g, (_match, hex: string) =>
+      String.fromCodePoint(parseInt(hex, 16)),
+    )
+    .replace(/&#(\d+);/g, (_match, dec: string) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&[a-zA-Z]+;/g, (entity) => HTML_ENTITIES[entity] ?? entity);
+}
+
+/**
+ * Converts Moodle-style HTML (used e.g. for quiz intros) into plain text
+ * suitable for a simple textarea field: strips tags, decodes entities and
+ * collapses whitespace/blank lines produced by block-level tags.
+ */
+export function htmlToPlainText(html: string | null | undefined): string {
+  if (!html) return '';
+
+  const withBreaks = html
+    // Block-level boundaries become newlines so paragraphs don't run together.
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|tr|h[1-6]|blockquote)>/gi, '\n')
+    .replace(/<[^>]*>/g, '');
+
+  const decoded = decodeHtmlEntities(withBreaks);
+
+  return decoded
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .filter((line) => line.length > 0)
+    .join('\n')
+    .trim();
+}

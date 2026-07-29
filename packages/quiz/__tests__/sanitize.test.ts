@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeQuestionHtml } from '../src/sanitize';
+import { htmlToPlainText, sanitizeQuestionHtml } from '../src/sanitize';
 
 describe('sanitizeQuestionHtml', () => {
   it('keeps allowed tags and strips disallowed ones', () => {
@@ -66,5 +66,42 @@ describe('sanitizeQuestionHtml', () => {
     );
 
     expect(result.html).toBe('<img src="/api/files/22222222-2222-2222-2222-222222222222" />');
+  });
+});
+
+describe('htmlToPlainText', () => {
+  it('returns an empty string for empty/null/undefined input', () => {
+    expect(htmlToPlainText('')).toBe('');
+    expect(htmlToPlainText(null)).toBe('');
+    expect(htmlToPlainText(undefined)).toBe('');
+  });
+
+  it('strips a simple tag', () => {
+    expect(htmlToPlainText('<p>В билете 20 вопросов</p>')).toBe('В билете 20 вопросов');
+  });
+
+  it('strips nested tags', () => {
+    expect(htmlToPlainText('<p>Текст <b>жирный <i>и курсив</i></b> конец</p>')).toBe(
+      'Текст жирный и курсив конец',
+    );
+  });
+
+  it('decodes HTML entities', () => {
+    expect(htmlToPlainText('<p>Тест&nbsp;&amp;&nbsp;&quot;проверка&quot;</p>')).toBe(
+      'Тест & "проверка"',
+    );
+  });
+
+  it('turns block-level boundaries and <br> into line breaks and collapses blank lines', () => {
+    expect(htmlToPlainText('<p>Первая строка</p><p>Вторая строка</p><p></p><p>Третья</p>')).toBe(
+      'Первая строка\nВторая строка\nТретья',
+    );
+    expect(htmlToPlainText('Строка 1<br>Строка 2<br/>Строка 3')).toBe(
+      'Строка 1\nСтрока 2\nСтрока 3',
+    );
+  });
+
+  it('collapses repeated whitespace and trims the result', () => {
+    expect(htmlToPlainText('   <p>  много   пробелов   </p>   ')).toBe('много пробелов');
   });
 });

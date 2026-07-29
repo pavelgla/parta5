@@ -12,6 +12,7 @@ function nullableString(value: unknown): string | null {
 
 export interface ParsedSection {
   id: number;
+  number: number;
   title: string | null;
   summaryHtml: string | null;
   sequence: number[];
@@ -35,6 +36,7 @@ export async function parseSection(backupDir: string, directory: string): Promis
 
   return {
     id: Number(section.id),
+    number: Number(section.number),
     title: nullableString(section.name),
     summaryHtml: nullableString(section.summary),
     sequence,

@@ -25,7 +25,7 @@ export const quizRouter = router({
           include: {
             quizQuestions: {
               orderBy: { order: 'asc' },
-              include: { question: { select: { id: true, type: true, name: true } } },
+              include: { question: { select: { id: true, type: true, name: true, data: true } } },
             },
           },
         }),
