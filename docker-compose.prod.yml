@@ -1,0 +1,187 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      - SITE_DOMAIN=${SITE_DOMAIN}
+      - ACME_EMAIL=${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    # Порт НЕ публикуется на хост — единственная внешняя точка входа это Caddy.
+    environment:
+      - DATABASE_URL=postgresql://parta5_app:${POSTGRES_APP_PASSWORD}@db:5432/parta5
+      - AUTH_SECRET=${AUTH_SECRET}
+      - AUTH_URL=${AUTH_URL}
+      - AUTH_TRUST_HOST=true
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_REGION=${S3_REGION:-us-east-1}
+      - S3_ACCESS_KEY_ID=${MINIO_ROOT_USER}
+      - S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_PUBLIC_URL=${S3_PUBLIC_URL}
+      - S3_FORCE_PATH_STYLE=true
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      # node:22-alpine (busybox) ships wget; /login не требует сессии/БД-состояния помимо
+      # подключения к БД при рендере, поэтому 200/30x с него — достаточный сигнал живости.
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000/login']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    # Порт НЕ публикуется на хост (требование этапа A5) — доступ только из docker-сети.
+    environment:
+      POSTGRES_USER: parta5
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: parta5
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U parta5']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # Однократный прогон миграций схемой-владельцем (parta5). НЕ входит в состав `docker compose up`
+  # по умолчанию — запускается явно (см. docs/deployment/sel1-psr.md), под ролью-владельцем,
+  # отдельно от рантайм-роли parta5_app (см. миграцию 20260716000000_grant_app_role, ADR-002).
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: builder
+    command: pnpm --filter @parta5/db exec prisma migrate deploy
+    environment:
+      - DATABASE_URL=postgresql://parta5:${POSTGRES_PASSWORD}@db:5432/parta5
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ['migrate']
+    restart: 'no'
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    # Порт НЕ публикуется на хост: ни S3 API (9000), ни консоль (9001) наружу не смотрят.
+    # Раздача файлов идёт через /api/files/[id] приложения (см. ADR-005), не напрямую из MinIO.
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'mc ready local || curl -f http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
+      mc mb -p local/${S3_BUCKET} &&
+      mc anonymous set download local/${S3_BUCKET}/public/* || true
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET}
+    restart: 'no'
+
+  redis:
+    image: redis:7-alpine
+    # Порт НЕ публикуется на хост — доступ только из docker-сети.
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://parta5_app:${POSTGRES_APP_PASSWORD}@db:5432/parta5
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL}
+      S3_FORCE_PATH_STYLE: 'true'
+      NODE_ENV: production
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      TRANSCODE_TIMEOUT_MS: ${TRANSCODE_TIMEOUT_MS:-1800000}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    # FFmpeg-транскодинг прожорлив по памяти на HD/FullHD-видео — жёсткий лимит защищает
+    # хост от OOM при нескольких параллельных джобах. Поднять при большом WORKER_CONCURRENCY
+    # или транскодинге 1080p-видео с высоким битрейтом.
+    mem_limit: 2g
+    mem_reservation: 512m
+    cpus: 2.0
+    healthcheck:
+      # У воркера нет HTTP-порта — проверяем, что он реально может достучаться до Redis
+      # (ioredis уже в его node_modules, отдельных зависимостей не требует).
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "const IORedis=require('ioredis');const r=new IORedis(process.env.REDIS_URL,{maxRetriesPerRequest:1,lazyConnect:true});r.connect().then(()=>r.ping()).then(()=>{r.disconnect();process.exit(0)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  miniodata:
+  redisdata:
+  caddydata:
+  caddyconfig:

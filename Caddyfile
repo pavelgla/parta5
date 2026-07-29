@@ -1,0 +1,25 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$SITE_DOMAIN} {
+	encode zstd gzip
+
+	# Импорт больших .mbz и загрузка PDF/картинок вопросов — снимаем дефолтный лимит Caddy.
+	request_body {
+		max_size 512MB
+	}
+
+	reverse_proxy web:3000 {
+		# Caddy сам добавляет X-Forwarded-For/-Proto/-Host; AUTH_TRUST_HOST=true у web
+		# на это и рассчитан (см. docker-compose.prod.yml).
+		flush_interval -1
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 50MB
+			roll_keep 5
+		}
+	}
+}
