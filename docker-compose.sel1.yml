@@ -1,0 +1,28 @@
+# Оверлей для сервера sel1, где 80/443 уже занимает общий `proxy-nginx`
+# (он же терминирует TLS сертификатами certbot для всех сайтов сервера).
+#
+# Собственный Caddy из docker-compose.prod.yml на таком сервере поднять нельзя —
+# порты заняты. Поэтому здесь Caddy убирается в неиспользуемый профиль, а `web`
+# подключается к внешней сети `webproxy`, чтобы nginx резолвил его по имени
+# контейнера (`parta5-web:3000`) — так же, как настроены соседние проекты.
+#
+# Запуск:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.sel1.yml up -d
+#
+# Vhost на стороне прокси: /opt/proxy/nginx/conf.d/parta5-psr.conf
+
+services:
+  caddy:
+    # Профиль, который никогда не активируется, — сервис не поднимается.
+    profiles: ['unused-on-sel1']
+
+  web:
+    container_name: parta5-web
+    networks:
+      - default
+      - webproxy
+
+networks:
+  webproxy:
+    name: webproxy
+    external: true
