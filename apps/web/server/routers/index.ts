@@ -15,6 +15,8 @@ import { questionBankRouter } from './question-bank';
 import { quizRouter } from './quiz';
 import { attemptRouter } from './attempt';
 import { gradebookRouter } from './gradebook';
+import { userRouter } from './user';
+import { groupRouter } from './group';
 
 export const appRouter = router({
   course: courseRouter,
@@ -33,6 +35,8 @@ export const appRouter = router({
   quiz: quizRouter,
   attempt: attemptRouter,
   gradebook: gradebookRouter,
+  user: userRouter,
+  group: groupRouter,
 });
 
 export type AppRouter = typeof appRouter;

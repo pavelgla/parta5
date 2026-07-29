@@ -70,4 +70,53 @@ describe('authz middleware', () => {
       } satisfies Partial<TRPCError>);
     },
   );
+
+  it('STUDENT → user.create throws FORBIDDEN', async () => {
+    const caller = callerFor(sessionFor(UserRole.STUDENT));
+    await expect(
+      caller.user.create({
+        name: 'New User',
+        email: 'new@school.ru',
+        role: UserRole.STUDENT,
+        password: 'password123',
+      }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' } satisfies Partial<TRPCError>);
+  });
+
+  it('TEACHER → user.create throws FORBIDDEN', async () => {
+    const caller = callerFor(sessionFor(UserRole.TEACHER));
+    await expect(
+      caller.user.create({
+        name: 'New User',
+        email: 'new@school.ru',
+        role: UserRole.STUDENT,
+        password: 'password123',
+      }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' } satisfies Partial<TRPCError>);
+  });
+
+  it('STUDENT → group.create throws FORBIDDEN', async () => {
+    const caller = callerFor(sessionFor(UserRole.STUDENT));
+    await expect(caller.group.create({ name: '10A' })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    } satisfies Partial<TRPCError>);
+  });
+
+  it('STUDENT → enrollment.enrollUsers throws FORBIDDEN', async () => {
+    const caller = callerFor(sessionFor(UserRole.STUDENT));
+    await expect(
+      caller.enrollment.enrollUsers({
+        courseId: '00000000-0000-0000-0000-000000000000',
+        userIds: ['00000000-0000-0000-0000-000000000001'],
+        role: 'STUDENT',
+      }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' } satisfies Partial<TRPCError>);
+  });
+
+  it('SCHOOL_ADMIN → user.setActive on self throws BAD_REQUEST', async () => {
+    const caller = callerFor(sessionFor(UserRole.SCHOOL_ADMIN));
+    await expect(caller.user.setActive({ id: 'user-1', isActive: false })).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+    } satisfies Partial<TRPCError>);
+  });
 });
