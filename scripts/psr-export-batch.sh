@@ -215,7 +215,8 @@ export_one_course() {
   # запускается backup.php. Созданный на хосте каталог принадлежит хостовому
   # пользователю, и backup.php падает с «Destination directory does not exists or
   # not writable» — молча, с нулевым кодом возврата.
-  docker exec -u "$EXEC_USER" "$MOODLE_CONTAINER" mkdir -p "$container_tmp_dir"
+  docker exec "$MOODLE_CONTAINER" sh -c \
+    "mkdir -p '$container_tmp_dir' && chown -R $EXEC_USER '$container_tmp_dir'"
 
   local start_ts end_ts duration
   start_ts="$(date +%s)"
