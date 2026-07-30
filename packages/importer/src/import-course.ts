@@ -70,6 +70,7 @@ interface ImportPlan {
   courseTitle: string;
   courseDescription: string | null;
   modules: PlannedModule[];
+  skippedEmptySections: number;
   skippedActivities: SkippedActivity[];
   warnings: string[];
   fileCount: number;
@@ -105,7 +106,7 @@ function isVideoUrl(externalurl: string): boolean {
   }
 }
 
-async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<ImportPlan> {
+export async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<ImportPlan> {
   const filesManifest = await parseFilesManifest(backupDir);
 
   const warnings: string[] = [];
@@ -119,6 +120,7 @@ async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<I
   );
 
   const modules: PlannedModule[] = [];
+  let skippedEmptySections = 0;
 
   for (const [index, manifestSection] of manifest.sections.entries()) {
     const section = sections[index];
@@ -154,9 +156,16 @@ async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<I
       fileTotalBytes += lesson.fileTotalBytes;
     }
 
+    if (lessons.length === 0) {
+      // Секция без уроков не должна становиться модулем — слушатель не должен
+      // видеть пустые разделы курса (см. отчёт по пилоту ПСР, 12 курсов).
+      skippedEmptySections += 1;
+      continue;
+    }
+
     modules.push({
       title: resolveModuleTitle(section.title, section.number),
-      order: index,
+      order: modules.length,
       lessons,
     });
   }
@@ -205,6 +214,7 @@ async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<I
     courseTitle: manifest.originalCourseFullname,
     courseDescription: firstSummary,
     modules,
+    skippedEmptySections,
     skippedActivities,
     warnings,
     fileCount,
@@ -395,6 +405,7 @@ function buildReport(plan: ImportPlan, courseSlug: string): ImportReport {
     courseTitle: plan.courseTitle,
     courseSlug,
     modules: plan.modules.length,
+    skippedEmptySections: plan.skippedEmptySections,
     lessons,
     blocks,
     files: {

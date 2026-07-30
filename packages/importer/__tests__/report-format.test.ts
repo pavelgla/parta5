@@ -7,6 +7,7 @@ function baseReport(overrides: Partial<ImportReport> = {}): ImportReport {
     courseTitle: 'Test Course',
     courseSlug: 'testcourse-ab12cd',
     modules: 3,
+    skippedEmptySections: 0,
     lessons: 6,
     blocks: 8,
     files: { count: 2, totalBytes: 1572864 },
@@ -30,12 +31,14 @@ describe('formatReport', () => {
       questions: { imported: 5, skippedByType: { essay: 3, matching: 1 } },
       questionFiles: { count: 3, totalBytes: 1048576 },
       courseCover: true,
+      skippedEmptySections: 2,
     });
 
     const text = formatReport(report);
 
     expect(text).toContain('Курс: Test Course (testcourse-ab12cd)');
     expect(text).toContain('Модулей: 3, уроков: 6, блоков: 8');
+    expect(text).toContain('Пропущено пустых секций (без уроков): 2');
     expect(text).toContain('Обложка курса: перенесена');
     expect(text).toContain('Файлов: 2 (1.5 МБ)');
     expect(text).toContain('Квизов: 1, вопросов: 5');
@@ -53,6 +56,7 @@ describe('formatReport', () => {
 
     expect(text).toContain('Обложка курса: не найдена в бэкапе');
     expect(text).not.toContain('Пропущено вопросов по типам');
+    expect(text).not.toContain('Пропущено пустых секций');
     expect(text).not.toContain('Пропущенные активности:');
     expect(text).not.toContain('Предупреждения:');
   });

@@ -8,6 +8,7 @@ export interface ImportReport {
   courseTitle: string;
   courseSlug: string | null;
   modules: number;
+  skippedEmptySections: number;
   lessons: number;
   blocks: number;
   files: { count: number; totalBytes: number };

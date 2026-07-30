@@ -3,7 +3,8 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import { describe, expect, it } from 'vitest';
 import type { StorageAdapter } from '@parta5/storage';
-import { importCourse } from '../src/import-course';
+import { buildPlan, importCourse } from '../src/import-course';
+import { parseManifest } from '../src/manifest';
 
 const FIXTURE_DIR = path.join(__dirname, 'fixtures', 'minimal-backup');
 
@@ -519,6 +520,152 @@ ${multichoiceQuestion(501, 'Dup Q1', 'a.png')}${multichoiceQuestion(502, 'Dup Q2
       expect(report.questionFiles).toEqual({ count: 1, totalBytes: 6 });
       expect(report.warnings).toEqual([]);
       expect(storage.calls).toHaveLength(0);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('buildPlan (empty sections)', () => {
+  it('drops sections without lessons and keeps module order contiguous', async () => {
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'parta5-import-course-empty-section-'));
+    try {
+      await mkdir(path.join(tmpDir, 'sections', 'section_1'), { recursive: true });
+      await mkdir(path.join(tmpDir, 'sections', 'section_2'), { recursive: true });
+      await mkdir(path.join(tmpDir, 'sections', 'section_3'), { recursive: true });
+      await mkdir(path.join(tmpDir, 'activities', 'label_1'), { recursive: true });
+      await mkdir(path.join(tmpDir, 'activities', 'label_2'), { recursive: true });
+
+      await writeFile(
+        path.join(tmpDir, 'files.xml'),
+        '<?xml version="1.0" encoding="UTF-8"?>\n<files>\n</files>\n',
+        'utf-8',
+      );
+
+      await writeFile(
+        path.join(tmpDir, 'moodle_backup.xml'),
+        `<?xml version="1.0" encoding="UTF-8"?>
+<moodle_backup>
+  <information>
+    <moodle_version>2024100700</moodle_version>
+    <moodle_release>5.0.6</moodle_release>
+    <backup_date>1735689600</backup_date>
+    <original_course_fullname>Empty Section Course</original_course_fullname>
+    <original_course_shortname>emptysectioncourse</original_course_shortname>
+    <contents>
+      <activities>
+        <activity>
+          <moduleid>1</moduleid>
+          <sectionid>1</sectionid>
+          <modulename>label</modulename>
+          <title>First</title>
+          <directory>activities/label_1</directory>
+        </activity>
+        <activity>
+          <moduleid>2</moduleid>
+          <sectionid>3</sectionid>
+          <modulename>label</modulename>
+          <title>Last</title>
+          <directory>activities/label_2</directory>
+        </activity>
+      </activities>
+      <sections>
+        <section>
+          <sectionid>1</sectionid>
+          <title>Section with a lesson</title>
+          <directory>sections/section_1</directory>
+        </section>
+        <section>
+          <sectionid>2</sectionid>
+          <title>Empty section</title>
+          <directory>sections/section_2</directory>
+        </section>
+        <section>
+          <sectionid>3</sectionid>
+          <title>Another section with a lesson</title>
+          <directory>sections/section_3</directory>
+        </section>
+      </sections>
+    </contents>
+  </information>
+</moodle_backup>
+`,
+        'utf-8',
+      );
+
+      await writeFile(
+        path.join(tmpDir, 'sections', 'section_1', 'section.xml'),
+        `<?xml version="1.0" encoding="UTF-8"?>
+<section id="1">
+  <id>1</id>
+  <number>1</number>
+  <name>Section with a lesson</name>
+  <summary>$@NULL@$</summary>
+  <sequence>1</sequence>
+  <visible>1</visible>
+</section>
+`,
+        'utf-8',
+      );
+
+      await writeFile(
+        path.join(tmpDir, 'sections', 'section_2', 'section.xml'),
+        `<?xml version="1.0" encoding="UTF-8"?>
+<section id="2">
+  <id>2</id>
+  <number>2</number>
+  <name>Empty section</name>
+  <summary>$@NULL@$</summary>
+  <sequence>$@NULL@$</sequence>
+  <visible>1</visible>
+</section>
+`,
+        'utf-8',
+      );
+
+      await writeFile(
+        path.join(tmpDir, 'sections', 'section_3', 'section.xml'),
+        `<?xml version="1.0" encoding="UTF-8"?>
+<section id="3">
+  <id>3</id>
+  <number>3</number>
+  <name>Another section with a lesson</name>
+  <summary>$@NULL@$</summary>
+  <sequence>2</sequence>
+  <visible>1</visible>
+</section>
+`,
+        'utf-8',
+      );
+
+      for (const [dir, id] of [
+        ['label_1', 1],
+        ['label_2', 2],
+      ] as const) {
+        await writeFile(
+          path.join(tmpDir, 'activities', dir, 'label.xml'),
+          `<?xml version="1.0" encoding="UTF-8"?>
+<activity id="${id}" moduleid="${id}" modulename="label" contextid="${100 + id}">
+  <label id="${id}">
+    <name>Label ${id}</name>
+    <intro>&lt;p&gt;Content ${id}&lt;/p&gt;</intro>
+    <introformat>1</introformat>
+  </label>
+</activity>
+`,
+          'utf-8',
+        );
+      }
+
+      const manifest = await parseManifest(tmpDir);
+      const plan = await buildPlan(tmpDir, manifest);
+
+      expect(plan.modules.map((mod) => mod.title)).toEqual([
+        'Section with a lesson',
+        'Another section with a lesson',
+      ]);
+      expect(plan.modules.map((mod) => mod.order)).toEqual([0, 1]);
+      expect(plan.skippedEmptySections).toBe(1);
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }

@@ -52,6 +52,12 @@ export default async function LearnCoursePage({ params }: Props) {
         </div>
       </div>
 
+      {course.modules.length === 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-5 text-center text-sm text-gray-500 shadow-sm">
+          В курсе пока нет материалов
+        </div>
+      )}
+
       <div className="space-y-4">
         {course.modules.map((mod) => (
           <div key={mod.id} className="rounded-xl border border-gray-200 bg-white shadow-sm">

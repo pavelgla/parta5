@@ -25,7 +25,13 @@ export const learnRouter = router({
             },
           },
         });
-        return course;
+        // Слушатель не должен видеть разделы курса, в которых нет ни одного
+        // урока (например, после импорта из Moodle) — только преподавательские
+        // страницы редактора и превью показывают их как есть.
+        return {
+          ...course,
+          modules: course.modules.filter((mod) => mod.lessons.length > 0),
+        };
       });
     }),
 
