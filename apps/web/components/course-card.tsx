@@ -68,7 +68,7 @@ export function CourseCard({
           <img
             src={getFileUrl(course.coverFileAsset)}
             alt={course.title}
-            className="h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
