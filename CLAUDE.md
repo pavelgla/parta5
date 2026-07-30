@@ -12,7 +12,9 @@
 - **Аудитория:** школы 5–11 классов, УДО, преподаватели, ученики, родители.
 - **Конкуренты:** Moodle (open-source, доминирует в школах), Skillspace / iSpring Learn / Teachbase / МТС Линк Курсы (закрытые корпоративные SaaS).
 - **Бизнес-модель:** open-core — бесплатное ядро под MPL 2.0, платные SaaS-облако и модули сверху.
-- **Текущая фаза:** Phase 0 (проектирование → скелет).
+- **Текущая фаза:** пилот у заказчика. Этапы A–D суперплана закрыты, инстанс ПрофСпецРесурса
+  работает на https://psr.parta5.ru (106 курсов из их Moodle, брендирование школы, публичная
+  витрина). Дальше — этапы E–H (`docs/SUPERPLAN.md`).
 
 Главный стратегический документ — `01-analysis-and-plan.md`. Перед существенными изменениями архитектуры — прочитать его и обновить.
 
@@ -20,21 +22,21 @@
 
 ## Архитектура и стек
 
-| Слой                | Технология                                                             |
-| ------------------- | ---------------------------------------------------------------------- |
-| Frontend + Backend  | Next.js 15 (App Router) + React Server Components                      |
-| API                 | tRPC (внутренний), OpenAPI/REST обёртка (для внешних интеграций)       |
-| БД                  | PostgreSQL 16+                                                         |
-| ORM                 | Prisma                                                                 |
-| Кеш + очереди       | Redis + BullMQ                                                         |
-| Объектное хранилище | S3-совместимое (Yandex Object Storage / VK Cloud / MinIO)              |
+| Слой                | Технология                                                                                                                                                        |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend + Backend  | Next.js 15 (App Router) + React Server Components                                                                                                                 |
+| API                 | tRPC (внутренний), OpenAPI/REST обёртка (для внешних интеграций)                                                                                                  |
+| БД                  | PostgreSQL 16+                                                                                                                                                    |
+| ORM                 | Prisma                                                                                                                                                            |
+| Кеш + очереди       | Redis + BullMQ                                                                                                                                                    |
+| Объектное хранилище | S3-совместимое (Yandex Object Storage / VK Cloud / MinIO)                                                                                                         |
 | Видео               | Self-hosted: FFmpeg-воркер → HLS в S3 → HLS.js плеер. Плюс универсальный embed (YouTube/RuTube/VK/Kinescope/Vimeo/Boomstream). Никаких обязательных внешних SaaS. |
-| Аутентификация      | Auth.js (NextAuth) + ЕСИА OIDC для гос-сегмента                        |
-| AI                  | OpenAI API + Anthropic API через единый адаптер, pgvector для RAG      |
-| Уведомления         | SMTP (Unisender Go / Mailopost) + Telegram Bot API + Web Push (PWA)    |
-| Поиск               | PostgreSQL Full-Text Search → Meilisearch при росте                    |
-| Аналитика событий   | таблица `learning_event` (xAPI-like) в Postgres → ClickHouse при росте |
-| Контейнеризация     | Docker + docker-compose для self-host                                  |
+| Аутентификация      | Auth.js (NextAuth) + ЕСИА OIDC для гос-сегмента                                                                                                                   |
+| AI                  | OpenAI API + Anthropic API через единый адаптер, pgvector для RAG                                                                                                 |
+| Уведомления         | SMTP (Unisender Go / Mailopost) + Telegram Bot API + Web Push (PWA)                                                                                               |
+| Поиск               | PostgreSQL Full-Text Search → Meilisearch при росте                                                                                                               |
+| Аналитика событий   | таблица `learning_event` (xAPI-like) в Postgres → ClickHouse при росте                                                                                            |
+| Контейнеризация     | Docker + docker-compose для self-host                                                                                                                             |
 
 ### Мульти-тенантность
 
