@@ -7,7 +7,12 @@ import { buildKey } from '@parta5/storage';
 import { parseManifest, type CourseManifest, type ManifestActivity } from './manifest.js';
 import { parseSection } from './section.js';
 import { resolveModuleTitle } from './module-title.js';
-import { parseFilesManifest, contentPath, type BackupFileEntry } from './files.js';
+import {
+  parseFilesManifest,
+  contentPath,
+  findCourseCoverFile,
+  type BackupFileEntry,
+} from './files.js';
 import { collectQuestionFiles, otherQuestionFileareas } from './questions/question-files.js';
 import { parsePage } from './activities/page.js';
 import { parseLabel } from './activities/label.js';
@@ -75,6 +80,7 @@ interface ImportPlan {
   questionFileMatches: Map<ParsedQuestion, QuestionFileMatch[]>;
   questionFileCount: number;
   questionFileTotalBytes: number;
+  coverFile: BackupFileEntry | null;
 }
 
 type ParsedQuestionsResult = Awaited<ReturnType<typeof parseBackupQuestions>>;
@@ -156,6 +162,7 @@ async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<I
   }
 
   const firstSummary = sections[0]?.summaryHtml ?? null;
+  const coverFile = findCourseCoverFile(filesManifest);
 
   const questionFileMatches = new Map<ParsedQuestion, QuestionFileMatch[]>();
   let questionFileCount = 0;
@@ -208,6 +215,7 @@ async function buildPlan(backupDir: string, manifest: CourseManifest): Promise<I
     questionFileMatches,
     questionFileCount,
     questionFileTotalBytes,
+    coverFile,
   };
 }
 
@@ -398,6 +406,7 @@ function buildReport(plan: ImportPlan, courseSlug: string): ImportReport {
     warnings: plan.warnings,
     quizzes: plan.quizzes,
     questions: { imported: plan.parsedQuestions.length, skippedByType },
+    courseCover: plan.coverFile !== null,
   };
 }
 
@@ -506,8 +515,37 @@ export async function importCourse(opts: ImportCourseOptions): Promise<ImportRep
     uploadedKeys.push(key);
   }
 
+  let coverUpload: { key: string; file: BackupFileEntry } | null = null;
+  if (plan.coverFile) {
+    const uuid = crypto.randomUUID();
+    const key = buildKey(schoolId, 'files', uuid, plan.coverFile.filename);
+    await storage.putObjectFromPath(
+      key,
+      contentPath(backupDir, plan.coverFile.contenthash),
+      plan.coverFile.mimetype ?? 'application/octet-stream',
+    );
+    coverUpload = { key, file: plan.coverFile };
+    uploadedKeys.push(key);
+  }
+
   try {
     return await withTenantClient(db, schoolId, async (tx) => {
+      let coverFileAssetId: string | undefined;
+      if (coverUpload) {
+        const coverAsset = await tx.fileAsset.create({
+          data: {
+            schoolId,
+            uploaderId: createdById,
+            key: coverUpload.key,
+            originalName: coverUpload.file.filename,
+            mimeType: coverUpload.file.mimetype ?? 'application/octet-stream',
+            sizeBytes: coverUpload.file.filesize,
+            status: FileAssetStatus.UPLOADED,
+          },
+        });
+        coverFileAssetId = coverAsset.id;
+      }
+
       const course = await tx.course.create({
         data: {
           schoolId,
@@ -516,6 +554,7 @@ export async function importCourse(opts: ImportCourseOptions): Promise<ImportRep
           description: plan.courseDescription ?? undefined,
           slug: courseSlug,
           status: 'DRAFT',
+          coverFileAssetId,
         },
       });
 

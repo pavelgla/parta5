@@ -24,6 +24,7 @@ export function formatReport(report: ImportReport, dryRun = false): string {
     : `Курс: ${report.courseTitle}`;
   lines.push(courseLine);
   lines.push(`Модулей: ${report.modules}, уроков: ${report.lessons}, блоков: ${report.blocks}`);
+  lines.push(`Обложка курса: ${report.courseCover ? 'перенесена' : 'не найдена в бэкапе'}`);
   lines.push(`Файлов: ${report.files.count} (${formatMb(report.files.totalBytes)} МБ)`);
   lines.push(`Квизов: ${report.quizzes}, вопросов: ${report.questions.imported}`);
   lines.push(

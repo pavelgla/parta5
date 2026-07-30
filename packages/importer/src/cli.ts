@@ -7,11 +7,32 @@ import { createStorageFromEnv } from '@parta5/storage';
 import type { StorageAdapter } from '@parta5/storage';
 import { extractMbz } from './mbz.js';
 import { importCourse } from './import-course.js';
+import { importCoverOnly, type CoverOnlyResult } from './import-cover-only.js';
 import { formatReport } from './report-format.js';
 
 // Не покрыто unit-тестами — требует живой БД и .mbz файла. E2E-прогон на
 // реальном экспорте PSR выполняется задачей C6.
-const USAGE = `Использование: parta5-import --file <path.mbz> --school <slug> --user <email> [--dry-run] [--keep-temp]`;
+const USAGE = `Использование: parta5-import --file <path.mbz> --school <slug> --user <email> [--dry-run] [--keep-temp] [--covers-only]`;
+
+function formatCoverOnlyResult(result: CoverOnlyResult): string {
+  switch (result.status) {
+    case 'no-cover-in-backup':
+      return `Обложка не найдена в бэкапе курса "${result.courseFullname}" — пропущено`;
+    case 'no-course-match':
+      return `Курс "${result.courseFullname}" не найден в школе — ничего не изменено`;
+    case 'ambiguous-match': {
+      const list = result.candidates.map((c) => `  - ${c.id} (${c.title})`).join('\n');
+      return (
+        `Найдено несколько курсов с названием "${result.courseFullname}" — ничего не изменено:\n` +
+        list
+      );
+    }
+    case 'already-has-cover':
+      return `Курс "${result.courseTitle}" (${result.courseId}) уже имеет обложку — пропущено`;
+    case 'cover-set':
+      return `Курсу "${result.courseTitle}" (${result.courseId}) проставлена обложка, fileAssetId=${result.fileAssetId}`;
+  }
+}
 
 const DRY_RUN_STORAGE: StorageAdapter = {
   async presignUpload() {
@@ -53,6 +74,7 @@ async function main(): Promise<void> {
       user: { type: 'string' },
       'dry-run': { type: 'boolean', default: false },
       'keep-temp': { type: 'boolean', default: false },
+      'covers-only': { type: 'boolean', default: false },
     },
   });
 
@@ -67,6 +89,7 @@ async function main(): Promise<void> {
   const userEmail = values.user;
   const dryRun = values['dry-run'] === true;
   const keepTemp = values['keep-temp'] === true;
+  const coversOnly = values['covers-only'] === true;
 
   const school = await prisma.school.findUnique({ where: { slug: schoolSlug } });
   if (!school) {
@@ -92,6 +115,20 @@ async function main(): Promise<void> {
 
   try {
     await extractMbz(filePath, tmpDir);
+
+    if (coversOnly) {
+      // Всегда пишет в БД/хранилище — режим существует именно чтобы
+      // проставить обложку уже импортированным курсам, --dry-run для него
+      // не имеет смысла и игнорируется.
+      const result = await importCoverOnly({
+        backupDir: tmpDir,
+        schoolId: school.id,
+        createdById: user.id,
+        storage: createStorageFromEnv(),
+      });
+      console.log(formatCoverOnlyResult(result));
+      return;
+    }
 
     const storage = dryRun ? DRY_RUN_STORAGE : createStorageFromEnv();
 

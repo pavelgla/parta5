@@ -56,6 +56,7 @@ describe('importCourse (dryRun)', () => {
     expect(report.blocks).toBe(6);
     expect(report.files).toEqual({ count: 2, totalBytes: 15 });
     expect(report.questionFiles).toEqual({ count: 1, totalBytes: 11 });
+    expect(report.courseCover).toBe(true);
     expect(report.skippedActivities).toEqual([]);
     expect(report.quizzes).toBe(1);
     expect(report.questions).toEqual({ imported: 1, skippedByType: { essay: 1 } });
@@ -168,6 +169,7 @@ describe('importCourse (sequence handling)', () => {
       expect(report.lessons).toBe(2);
       expect(report.warnings).toHaveLength(1);
       expect(report.warnings[0]).toMatch(/Missing from sequence/);
+      expect(report.courseCover).toBe(false);
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }

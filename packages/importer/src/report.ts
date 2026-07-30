@@ -16,4 +16,5 @@ export interface ImportReport {
   warnings: string[];
   quizzes: number;
   questions: { imported: number; skippedByType: Record<string, number> };
+  courseCover: boolean;
 }

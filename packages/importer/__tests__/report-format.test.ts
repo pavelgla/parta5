@@ -15,6 +15,7 @@ function baseReport(overrides: Partial<ImportReport> = {}): ImportReport {
     warnings: [],
     quizzes: 1,
     questions: { imported: 5, skippedByType: {} },
+    courseCover: false,
     ...overrides,
   };
 }
@@ -28,12 +29,14 @@ describe('formatReport', () => {
       warnings: ['первое предупреждение'],
       questions: { imported: 5, skippedByType: { essay: 3, matching: 1 } },
       questionFiles: { count: 3, totalBytes: 1048576 },
+      courseCover: true,
     });
 
     const text = formatReport(report);
 
     expect(text).toContain('Курс: Test Course (testcourse-ab12cd)');
     expect(text).toContain('Модулей: 3, уроков: 6, блоков: 8');
+    expect(text).toContain('Обложка курса: перенесена');
     expect(text).toContain('Файлов: 2 (1.5 МБ)');
     expect(text).toContain('Квизов: 1, вопросов: 5');
     expect(text).toContain('Картинки вопросов: 3 (1.0 МБ)');
@@ -48,6 +51,7 @@ describe('formatReport', () => {
   it('omits optional sections when there is nothing to show', () => {
     const text = formatReport(baseReport());
 
+    expect(text).toContain('Обложка курса: не найдена в бэкапе');
     expect(text).not.toContain('Пропущено вопросов по типам');
     expect(text).not.toContain('Пропущенные активности:');
     expect(text).not.toContain('Предупреждения:');

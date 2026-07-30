@@ -48,3 +48,23 @@ export async function parseFilesManifest(backupDir: string): Promise<BackupFileE
 export function contentPath(backupDir: string, contenthash: string): string {
   return path.join(backupDir, 'files', contenthash.slice(0, 2), contenthash);
 }
+
+/**
+ * The course cover lives in `files.xml` as `component=course`,
+ * `filearea=overviewfiles`. The directory-placeholder entry (`filename` `.`)
+ * is already filtered out by `parseFilesManifest`; this additionally guards
+ * against non-image companions (Moodle allows arbitrary "overview files",
+ * not just images) by requiring an `image/*` mimetype and a non-zero size.
+ * Verified against real PSR backups: exactly one image entry per course.
+ */
+export function findCourseCoverFile(filesManifest: BackupFileEntry[]): BackupFileEntry | null {
+  const candidate = filesManifest.find(
+    (entry) =>
+      entry.component === 'course' &&
+      entry.filearea === 'overviewfiles' &&
+      entry.filesize > 0 &&
+      entry.mimetype !== null &&
+      entry.mimetype.startsWith('image/'),
+  );
+  return candidate ?? null;
+}

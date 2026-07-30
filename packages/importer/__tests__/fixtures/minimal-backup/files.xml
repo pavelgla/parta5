@@ -60,4 +60,28 @@
     <mimetype></mimetype>
     <filesize>0</filesize>
   </file>
+  <file id="6">
+    <id>6</id>
+    <contenthash>9988776655443322110099887766554433221100</contenthash>
+    <contextid>1</contextid>
+    <component>course</component>
+    <filearea>overviewfiles</filearea>
+    <itemid>0</itemid>
+    <filepath>/</filepath>
+    <filename>course-cover.jpg</filename>
+    <mimetype>image/jpeg</mimetype>
+    <filesize>900081</filesize>
+  </file>
+  <file id="7">
+    <id>7</id>
+    <contenthash>9988776655443322110099887766554433221100</contenthash>
+    <contextid>1</contextid>
+    <component>course</component>
+    <filearea>overviewfiles</filearea>
+    <itemid>0</itemid>
+    <filepath>/</filepath>
+    <filename>.</filename>
+    <mimetype>$@NULL@$</mimetype>
+    <filesize>0</filesize>
+  </file>
 </files>

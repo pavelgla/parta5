@@ -7,7 +7,7 @@ export type { ParsedSection } from './section.js';
 export { parseSection } from './section.js';
 
 export type { BackupFileEntry } from './files.js';
-export { contentPath, parseFilesManifest } from './files.js';
+export { contentPath, parseFilesManifest, findCourseCoverFile } from './files.js';
 
 export type { ParsedQuestion, QuestionParseResult, SkippedQuestion } from './questions/types.js';
 export type { RawAnswer, RawQuestion } from './questions/convert.js';
@@ -31,5 +31,8 @@ export { getActivityContextId } from './activities/context.js';
 
 export type { ImportCourseOptions } from './import-course.js';
 export { importCourse } from './import-course.js';
+
+export type { ImportCoverOnlyOptions, CoverOnlyResult } from './import-cover-only.js';
+export { importCoverOnly } from './import-cover-only.js';
 
 export { formatReport } from './report-format.js';
