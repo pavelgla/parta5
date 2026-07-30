@@ -63,7 +63,7 @@ export function CourseCard({
         </label>
       )}
       {/* Cover image */}
-      <div className="relative aspect-video bg-gray-100">
+      <div className="relative aspect-[16/9] bg-gray-100">
         {course.coverFileAsset ? (
           <img
             src={getFileUrl(course.coverFileAsset)}

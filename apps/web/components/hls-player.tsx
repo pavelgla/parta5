@@ -61,7 +61,7 @@ export function HlsPlayer({ videoAssetId, onTimeUpdate, onEnded, onProgress, onC
 
   if (!data?.hlsPlaylistUrl) {
     return (
-      <div className="flex aspect-video w-full items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-400">
+      <div className="flex aspect-[16/9] w-full items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-400">
         {data?.status === 'failed' ? 'Ошибка транскодинга' : 'Видео обрабатывается...'}
       </div>
     );
