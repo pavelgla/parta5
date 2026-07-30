@@ -8,6 +8,7 @@ const catalogListInput = z
   .object({
     query: z.string().trim().max(100).optional(),
     limit: z.number().int().min(1).max(60).optional(),
+    page: z.number().int().min(1).optional(),
   })
   .optional();
 
@@ -46,6 +47,7 @@ export const catalogRouter = router({
 
     const query = input?.query;
     const limit = input?.limit;
+    const page = input?.page ?? 1;
 
     return withTenant(schoolId, async (tx) => {
       const where = {
@@ -58,6 +60,7 @@ export const catalogRouter = router({
           where,
           orderBy: { title: 'asc' },
           take: limit,
+          skip: limit ? (page - 1) * limit : undefined,
           select: {
             id: true,
             slug: true,

@@ -35,6 +35,8 @@ export function CatalogCourseCard({ course }: CatalogCourseCardProps) {
             <img
               src={getFileUrl(course.coverFileAsset)}
               alt={course.title}
+              loading="lazy"
+              decoding="async"
               className="absolute inset-0 h-full w-full object-cover"
             />
           ) : (

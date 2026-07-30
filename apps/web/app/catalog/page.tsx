@@ -1,11 +1,24 @@
 import Link from 'next/link';
+import type { Route } from 'next';
 import type { Metadata } from 'next';
 import { getCurrentSchool } from '@/lib/school-context';
 import { serverCaller } from '@/server/trpc/caller';
 import { CatalogCourseCard } from '@/components/catalog-course-card';
 
+const PAGE_SIZE = 24;
+
 interface Props {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
+}
+
+/** Мусор и значения < 1 → 1. Итоговая верхняя граница (последняя страница)
+ *  применяется отдельно, once we know `total`. */
+function parsePage(raw: string | undefined): number {
+  const parsed = Number.parseInt(raw ?? '', 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 1;
+  }
+  return parsed;
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,17 +45,39 @@ export default async function CatalogPage({ searchParams }: Props) {
     );
   }
 
-  const { q } = await searchParams;
+  const { q, page: pageParam } = await searchParams;
   const query = q?.trim() || undefined;
+  const requestedPage = parsePage(pageParam);
 
   const caller = await serverCaller();
-  const { items: courses, total } = await caller.catalog.list({ query, limit: 60 });
+
+  // `total` doesn't depend on the page (the count query has no skip/take),
+  // so an out-of-range `?page=` is only knowable after this first call —
+  // clamp it and re-fetch once when it was actually out of range.
+  const first = await caller.catalog.list({ query, limit: PAGE_SIZE, page: requestedPage });
+  const pageCount = Math.max(1, Math.ceil(first.total / PAGE_SIZE));
+  const page = Math.min(requestedPage, pageCount);
+  const { items: courses, total } =
+    page === requestedPage ? first : await caller.catalog.list({ query, limit: PAGE_SIZE, page });
+
+  const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, total);
+
+  const hrefForPage = (targetPage: number): Route => {
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+    if (targetPage > 1) params.set('page', String(targetPage));
+    const qs = params.toString();
+    return (qs ? `/catalog?${qs}` : '/catalog') as Route;
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="text-2xl font-bold text-gray-900">Каталог курсов</h1>
       <p className="mt-1 text-sm text-gray-500">
-        {total === 0 ? 'Курсы не найдены' : `Найдено курсов: ${total}`}
+        {total === 0
+          ? 'Курсы не найдены'
+          : `Найдено курсов: ${total} · показаны ${rangeStart}–${rangeEnd}`}
       </p>
 
       {/* Plain GET form — no client state, so search works with JavaScript
@@ -78,6 +113,39 @@ export default async function CatalogPage({ searchParams }: Props) {
               <CatalogCourseCard key={course.id} course={course} />
             ))}
           </ul>
+        )}
+
+        {/* Plain <Link>s — no client-side pagination state, so paging works
+            with JavaScript disabled just like the search form above. */}
+        {pageCount > 1 && (
+          <nav
+            aria-label="Страницы каталога"
+            className="mt-8 flex items-center justify-center gap-4 text-sm"
+          >
+            {page > 1 ? (
+              <Link
+                href={hrefForPage(page - 1)}
+                className="font-medium text-[var(--brand)] hover:underline"
+              >
+                ← Назад
+              </Link>
+            ) : (
+              <span className="text-gray-300">← Назад</span>
+            )}
+            <span className="text-gray-500">
+              Страница {page} из {pageCount}
+            </span>
+            {page < pageCount ? (
+              <Link
+                href={hrefForPage(page + 1)}
+                className="font-medium text-[var(--brand)] hover:underline"
+              >
+                Вперёд →
+              </Link>
+            ) : (
+              <span className="text-gray-300">Вперёд →</span>
+            )}
+          </nav>
         )}
       </div>
     </div>
