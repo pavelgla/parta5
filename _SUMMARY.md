@@ -1,9 +1,9 @@
 ---
 type: project
 status: active
-last_active: 2026-07-29
+last_active: 2026-07-30
 phase: D (пилот ПСР, суперплан 2026-07)
-phase_status: deployed
+phase_status: deployed (контент залит, дальше внешний вид)
 stack: [Next.js 15, tRPC v11, Prisma, PostgreSQL 16, Auth.js v5, Tailwind v4, pnpm, Turborepo]
 goal: Open-source LMS для школ 5–11 классов, УДО и ДПО РФ (MPL 2.0) — альтернатива Moodle
 domain: parta5.ru
