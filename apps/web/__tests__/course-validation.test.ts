@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SchoolKind } from '@parta5/db';
 import { validateCourse } from '../server/routers/course-validation';
+import type { CourseForValidation } from '../server/routers/course-validation';
 
 function courseWithLesson(overrides: Partial<Parameters<typeof validateCourse>[0]> = {}) {
   return {
@@ -73,5 +74,38 @@ describe('validateCourse', () => {
     expect(vocationalIssues).toEqual([]);
     expect(supplementaryIssues).toEqual([]);
     expect(schoolIssues.map((i) => i.path)).toEqual(expect.arrayContaining(['shortDescription']));
+  });
+});
+
+describe('validateCourse — пустые модули', () => {
+  const withModules = (modules: CourseForValidation['modules']): CourseForValidation => ({
+    title: 'Машинист перегружателей кат. E',
+    shortDescription: null,
+    modules,
+  });
+
+  const lesson = { id: 'l1', title: 'Урок', blocks: [{ id: 'b1' }] };
+
+  it('публикует курс, где часть модулей — пустые заготовки разделов Moodle', () => {
+    const issues = validateCourse(
+      withModules([
+        { id: 'm1', title: 'Общее', lessons: [lesson] },
+        { id: 'm2', title: 'Topic 2', lessons: [] },
+        { id: 'm3', title: 'Topic 3', lessons: [] },
+      ]),
+      SchoolKind.VOCATIONAL,
+    );
+    expect(issues).toEqual([]);
+  });
+
+  it('не публикует курс, в котором ни один модуль не содержит уроков', () => {
+    const issues = validateCourse(
+      withModules([
+        { id: 'm1', title: 'Общее', lessons: [] },
+        { id: 'm2', title: 'Topic 1', lessons: [] },
+      ]),
+      SchoolKind.VOCATIONAL,
+    );
+    expect(issues).toEqual([{ path: 'modules', message: 'Ни один модуль не содержит уроков' }]);
   });
 });

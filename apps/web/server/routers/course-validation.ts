@@ -43,14 +43,14 @@ export function validateCourse(course: CourseForValidation, kind: SchoolKind): V
   }
   if (course.modules.length === 0) {
     issues.push({ path: 'modules', message: 'Добавьте хотя бы один модуль' });
+  } else if (course.modules.every((mod) => mod.lessons.length === 0)) {
+    // Пустой модуль сам по себе публикацию не блокирует: в Moodle-курсах
+    // сплошь встречаются заготовки разделов («Topic 2», «Topic 3») без
+    // содержимого, и такие курсы там доступны слушателям. Требуем лишь,
+    // чтобы хотя бы один модуль содержал уроки.
+    issues.push({ path: 'modules', message: 'Ни один модуль не содержит уроков' });
   }
   for (const mod of course.modules) {
-    if (mod.lessons.length === 0) {
-      issues.push({
-        path: `module.${mod.id}.lessons`,
-        message: `Модуль «${mod.title}» не содержит уроков`,
-      });
-    }
     for (const lesson of mod.lessons) {
       if (lesson.blocks.length === 0) {
         issues.push({
