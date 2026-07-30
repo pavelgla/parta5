@@ -17,6 +17,8 @@ import { attemptRouter } from './attempt';
 import { gradebookRouter } from './gradebook';
 import { userRouter } from './user';
 import { groupRouter } from './group';
+import { schoolRouter } from './school';
+import { catalogRouter } from './catalog';
 
 export const appRouter = router({
   course: courseRouter,
@@ -37,6 +39,8 @@ export const appRouter = router({
   gradebook: gradebookRouter,
   user: userRouter,
   group: groupRouter,
+  school: schoolRouter,
+  catalog: catalogRouter,
 });
 
 export type AppRouter = typeof appRouter;

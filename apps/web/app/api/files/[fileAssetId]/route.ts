@@ -3,11 +3,39 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { withTenant } from '@parta5/db';
 import { createStorageFromEnv } from '@parta5/storage';
+import { getCurrentSchool } from '@/lib/school-context';
 
 export const runtime = 'nodejs';
 
 interface RouteContext {
   params: Promise<{ fileAssetId: string }>;
+}
+
+/**
+ * Anonymous visitors have no `schoolId` to scope a tenant query with, so by
+ * default every file behind this endpoint is private. Two narrow exceptions
+ * need to be visible before any session exists:
+ *  - a school's logo, shown on the branded /login page and (eventually) its
+ *    public storefront;
+ *  - a course cover, shown in the public course catalogue — but only once
+ *    the course is PUBLISHED, never for a draft still being edited.
+ * `getCurrentSchool()` resolves the school the request already belongs to
+ * (via session, host, or the single-school self-host fallback), so this
+ * never exposes files belonging to some *other* school.
+ */
+async function isPubliclyReadable(fileAssetId: string): Promise<boolean> {
+  const school = await getCurrentSchool();
+  if (!school) return false;
+
+  if (school.logoFileAssetId === fileAssetId) return true;
+
+  const course = await withTenant(school.id, (tx) =>
+    tx.course.findFirst({
+      where: { coverFileAssetId: fileAssetId, schoolId: school.id, status: 'PUBLISHED' },
+      select: { id: true },
+    }),
+  );
+  return !!course;
 }
 
 /**
@@ -25,13 +53,27 @@ function buildContentDisposition(originalName: string): string {
 }
 
 export async function GET(_request: Request, { params }: RouteContext) {
+  const { fileAssetId } = await params;
   const session = await auth();
-  const schoolId = session?.user?.schoolId;
+
+  let schoolId = session?.user?.schoolId ?? null;
+  let isPublic = false;
+
   if (!schoolId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // No session: only serve the two publicly-readable cases (see
+    // isPubliclyReadable) — everything else is a 404, not a 401/403, so we
+    // don't leak whether a private file exists.
+    if (!(await isPubliclyReadable(fileAssetId))) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    const school = await getCurrentSchool();
+    schoolId = school?.id ?? null;
+    isPublic = true;
   }
 
-  const { fileAssetId } = await params;
+  if (!schoolId) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
 
   const asset = await withTenant(schoolId, (tx) =>
     tx.fileAsset.findFirst({ where: { id: fileAssetId, schoolId } }),
@@ -51,7 +93,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
     const headers = new Headers({
       'Content-Type': asset.mimeType || 'application/octet-stream',
       'Content-Disposition': buildContentDisposition(asset.originalName),
-      'Cache-Control': 'private, max-age=60',
+      'Cache-Control': isPublic ? 'public, max-age=3600' : 'private, max-age=60',
     });
     if (asset.sizeBytes) {
       headers.set('Content-Length', String(asset.sizeBytes));

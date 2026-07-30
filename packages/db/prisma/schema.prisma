@@ -96,6 +96,21 @@ model School {
   kind      SchoolKind @default(SCHOOL)
   createdAt DateTime   @default(now())
 
+  // Branding
+  displayName     String?
+  legalName       String?
+  domain          String? @unique
+  brandColor      String?
+  logoFileAssetId String? @db.Uuid
+  tagline         String?
+  contactAddress  String?
+  contactPhone    String?
+  contactEmail    String?
+  siteUrl         String?
+  footerLinks     Json?
+
+  logoFileAsset FileAsset? @relation("SchoolLogo", fields: [logoFileAssetId], references: [id], onDelete: SetNull)
+
   users         User[]
   courses       Course[]
   questionBanks QuestionBank[]
@@ -266,6 +281,7 @@ model FileAsset {
 
   uploader      User      @relation(fields: [uploaderId], references: [id])
   coursesAsCover Course[] @relation("CourseCover")
+  schoolsWithLogo School[] @relation("SchoolLogo")
   courseImports  CourseImport[]
 
   @@index([schoolId])

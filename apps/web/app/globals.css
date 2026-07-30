@@ -9,4 +9,10 @@
   --muted-foreground: #6b7280;
   --border: #e5e7eb;
   --radius: 0.5rem;
+
+  /* Fallback for the school's brand color, overridden inline per-request in
+     app/layout.tsx once getCurrentSchool() resolves. Keeps components that
+     reference bg-[var(--brand)] etc. from breaking when no school resolves. */
+  --brand: #1d4ed8;
+  --brand-foreground: #ffffff;
 }
