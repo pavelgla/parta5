@@ -3,7 +3,8 @@ type: project
 status: active
 last_active: 2026-07-30
 phase: D (пилот ПСР, суперплан 2026-07)
-phase_status: deployed (контент залит, дальше внешний вид)
+phase_status: deployed (контент залит, брендирование и витрина в бою)
+next: демо пилота Александру Белому (ПСР); дальше этап E — задания и уведомления
 stack: [Next.js 15, tRPC v11, Prisma, PostgreSQL 16, Auth.js v5, Tailwind v4, pnpm, Turborepo]
 goal: Open-source LMS для школ 5–11 классов, УДО и ДПО РФ (MPL 2.0) — альтернатива Moodle
 domain: parta5.ru
@@ -43,12 +44,14 @@ packages/
   db/              — Prisma schema, миграции, withTenant()
   storage/         — S3 adapter (Phase 1)
   video/           — VideoAdapter (self-hosted HLS + embed) (Phase 1)
-  quiz/            — ПЛАН (Этап B): question schemas + auto-grade engine
-  importer/        — ПЛАН (Этап C): парсер .mbz / Moodle XML
+  quiz/            — question schemas + auto-grade engine (Этап B)
+  importer/        — парсер .mbz / Moodle XML (Этап C)
 docs/
   architecture/    — ADR-001 (стек), ADR-002 (RLS), ADR-003 (видео)
   reviews/         — 2026-07 senior+product ревью
   SUPERPLAN.md     — актуальный роадмап (этапы A–H)
+  STAGE-D-SPEC.md  — спека этапа D (пользователи, пилот)
+  APPEARANCE-SPEC.md — спека внешнего вида (брендирование, витрина)
 ```
 
 ## Phase 0 ✅ — закрыт (14 коммитов, tag `v0.1.0-phase0`)
@@ -75,15 +78,20 @@ docs/
 - Publishing flow: DRAFT → PUBLISHED → ARCHIVED + превью
 - Демо-курс «Введение в бег» (RunStart) + Playwright e2e
 
-## Текущий этап — A: Hardening (см. docs/SUPERPLAN.md)
+## Текущее состояние — этапы A–D закрыты, пилот в бою
 
-> Роадмап 2026-07 заменил прежнюю нумерацию фаз 2–7 на этапы A–H.
-> Цель этапов A–D: пилот с импортированным контентом Профспецресурса (~6–10 нед).
+> Роадмап 2026-07 заменил прежнюю нумерацию фаз 2–7 на этапы A–H (`docs/SUPERPLAN.md`).
+> Цель этапов A–D — пилот с реальным контентом Профспецресурса — достигнута.
 
-- [ ] **Этап A** — hardening: RBAC (teacherProcedure/adminProcedure + ownership), RLS на BlockView/FileAsset/VideoAsset/LearningEvent, непривилегированная DB-роль, фикс compose (web без S3/Redis env), enrollment-политика, воркер retry/timeout, vitest в CI + негативные authz-тесты → `v0.2.1`
-- [ ] **Этап B** — квиз-MVP: ADR-004, `@parta5/quiz` (multichoice/truefalse/shortanswer — покрывает 99,997% вопросов PSR), Quiz/QuizAttempt, UI прохождения, мини-журнал + CSV → `v0.3.0-phase2`
-- [ ] **Этап C** — импортер: `packages/importer`, .mbz-парсер, маппинг quiz/resource/page/url, CLI dry-run, тест на реальных .mbz из PSR → `v0.4.0-phase3`
-- [x] **Этап D** — админ-UI пользователей и групп, CSV-ростер (UTF-8/Windows-1251), состав курса, деплой на sel1 → https://psr.parta5.ru, школа ПСР, сквозной сценарий проверен вживую (билет ПДД с картинками → оценка в журнале). Остаток: батч-импорт всех 106 курсов и демо заказчику → `v0.5.0-pilot`
+- [x] **Этап A** — hardening: RBAC (teacher/adminProcedure + ownership), RLS на BlockView/FileAsset/VideoAsset/LearningEvent, непривилегированная DB-роль, фикс compose, enrollment-политика, воркер retry/timeout, негативные authz-тесты ✅ 2026-07-16
+- [x] **Этап B** — квиз-MVP: `@parta5/quiz` (multichoice/truefalse/shortanswer), Quiz/QuizAttempt, UI прохождения, журнал + CSV ✅ 2026-07-16
+- [x] **Этап C** — импортер `.mbz`: `packages/importer`, маппинг quiz/resource/page/url, CLI dry-run, картинки вопросов (`@@PLUGINFILE@@`) ✅ 2026-07-16
+- [x] **Этап D** — админ-UI пользователей и групп, CSV-ростер (UTF-8/Windows-1251), состав курса, деплой на sel1 → https://psr.parta5.ru, сквозной сценарий вживую (билет ПДД с картинками → оценка в журнале) ✅ 2026-07-29
+- [x] **Батч-миграция ПСР** — 106 курсов / 2954 теста / 62 942 вопроса, 0 ошибок; 104 курса опубликованы, 101 с обложками из бэкапов ✅ 2026-07-29
+- [x] **Внешний вид** — брендирование школы (поля School + `/admin/settings` + шапка/футер/вход), публичная витрина без логина (лендинг, `/catalog` с поиском и пагинацией, страница курса), пустые разделы Moodle скрыты от слушателя. Спека — `docs/APPEARANCE-SPEC.md` ✅ 2026-07-30
+- [ ] **Демо пилота Александру Белому** (ПСР) — инстанс готов, контент залит, брендирование на месте
+- [ ] parta5: снять с публикации тестовые курсы ПСР, видимые гостю в каталоге ⏳ 2026-07-31
+- [ ] parta5: проверить загрузку логотипа через `/admin/settings` под админом ПСР (на проде залит в обход UI) 📅 2026-08-03
 
 ## Дальнейшие этапы
 
@@ -94,6 +102,7 @@ docs/
 
 ## Ключевые архитектурные решения
 
+0. **Брендирование — настройка школы, не тема сборки.** Поля в `School` (название системы, юр. наименование, домен витрины, цвет, логотип, контакты, быстрые ссылки) + `/admin/settings`. Школа на публичных страницах резолвится по хосту запроса (`School.domain`), затем как единственная школа инстанса. Цвет — CSS-переменные `--brand` / `--brand-foreground`. В коде нет условий «если школа ПСР».
 1. **Edge-safe Auth.js split** — `auth.config.ts` (без Prisma) для middleware; `auth.ts` расширяет с Credentials. См. правило в CLAUDE.md.
 2. **RLS + FORCE ROW LEVEL SECURITY** — блокирует даже table owner; приложение использует non-superuser роль в prod.
 3. **tRPC v11** — `createCallerFactory` из `t`, RSC → tRPC через `serverCaller()`.
