@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { UserRole } from '@parta5/db';
 import { serverCaller } from '@/server/trpc/caller';
-import { CourseCard } from '@/components/course-card';
+import { CoursesList } from './courses-list';
 
 const TEACHER_ROLES: UserRole[] = [UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN];
 
@@ -41,17 +41,7 @@ export default async function CoursesPage() {
         )}
       </div>
 
-      {courses.length === 0 ? (
-        <div className="mt-12 text-center">
-          <p className="text-gray-500">Нет курсов. Создайте первый!</p>
-        </div>
-      ) : (
-        <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {courses.map((course) => (
-            <CourseCard key={course.id} course={course} variant="teacher" />
-          ))}
-        </ul>
-      )}
+      <CoursesList courses={courses} />
     </div>
   );
 }

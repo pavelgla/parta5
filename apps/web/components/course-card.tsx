@@ -14,6 +14,10 @@ interface CourseCardProps {
     coverFileAsset?: { id: string } | null;
   };
   variant: 'teacher' | 'student';
+  /** Показать чекбокс выбора для массовой публикации (только для черновиков). */
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -28,7 +32,13 @@ const STATUS_CLASS: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-600',
 };
 
-export function CourseCard({ course, variant }: CourseCardProps) {
+export function CourseCard({
+  course,
+  variant,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
+}: CourseCardProps) {
   const subjectLabel = course.subject
     ? SCHOOL_SUBJECTS.find((s) => s.id === course.subject)?.label
     : null;
@@ -37,7 +47,21 @@ export function CourseCard({ course, variant }: CourseCardProps) {
     .join(' • ');
 
   return (
-    <li className="flex flex-col rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+    <li className="relative flex flex-col rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      {selectable && (
+        <label
+          className="absolute left-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-md bg-white/90 shadow-sm cursor-pointer"
+          title="Выбрать для массовой публикации"
+        >
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect?.(course.id)}
+            className="h-4 w-4 accent-blue-600"
+          />
+          <span className="sr-only">Выбрать курс «{course.title}»</span>
+        </label>
+      )}
       {/* Cover image */}
       <div className="relative aspect-video bg-gray-100">
         {course.coverFileAsset ? (

@@ -25,10 +25,10 @@ export function validateCourse(course: CourseForValidation, kind: SchoolKind): V
   if (!course.title?.trim()) {
     issues.push({ path: 'title', message: 'Укажите название курса' });
   }
-  if (!course.shortDescription?.trim()) {
-    issues.push({ path: 'shortDescription', message: 'Краткое описание обязательно' });
-  }
   if (kind === SchoolKind.SCHOOL) {
+    if (!course.shortDescription?.trim()) {
+      issues.push({ path: 'shortDescription', message: 'Краткое описание обязательно' });
+    }
     if (!course.subject) {
       issues.push({ path: 'subject', message: 'Выберите предмет' });
     }

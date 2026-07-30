@@ -62,4 +62,16 @@ describe('validateCourse', () => {
 
     expect(issues.map((i) => i.path)).toEqual(expect.arrayContaining(['gradeLevel']));
   });
+
+  it('учебный центр без краткого описания публикуется, школа — нет', () => {
+    const course = courseWithLesson({ shortDescription: null });
+
+    const vocationalIssues = validateCourse(course, SchoolKind.VOCATIONAL);
+    const supplementaryIssues = validateCourse(course, SchoolKind.SUPPLEMENTARY);
+    const schoolIssues = validateCourse(course, SchoolKind.SCHOOL);
+
+    expect(vocationalIssues).toEqual([]);
+    expect(supplementaryIssues).toEqual([]);
+    expect(schoolIssues.map((i) => i.path)).toEqual(expect.arrayContaining(['shortDescription']));
+  });
 });
