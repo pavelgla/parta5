@@ -22,21 +22,21 @@
 
 ## Архитектура и стек
 
-| Слой                | Технология                                                                                                                                                        |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend + Backend  | Next.js 15 (App Router) + React Server Components                                                                                                                 |
-| API                 | tRPC (внутренний), OpenAPI/REST обёртка (для внешних интеграций)                                                                                                  |
-| БД                  | PostgreSQL 16+                                                                                                                                                    |
-| ORM                 | Prisma                                                                                                                                                            |
-| Кеш + очереди       | Redis + BullMQ                                                                                                                                                    |
-| Объектное хранилище | S3-совместимое (Yandex Object Storage / VK Cloud / MinIO)                                                                                                         |
-| Видео               | Self-hosted: FFmpeg-воркер → HLS в S3 → HLS.js плеер. Плюс универсальный embed (YouTube/RuTube/VK/Kinescope/Vimeo/Boomstream). Никаких обязательных внешних SaaS. |
-| Аутентификация      | Auth.js (NextAuth) + ЕСИА OIDC для гос-сегмента                                                                                                                   |
-| AI                  | OpenAI API + Anthropic API через единый адаптер, pgvector для RAG                                                                                                 |
-| Уведомления         | SMTP (Unisender Go / Mailopost) + Telegram Bot API + Web Push (PWA)                                                                                               |
-| Поиск               | PostgreSQL Full-Text Search → Meilisearch при росте                                                                                                               |
-| Аналитика событий   | таблица `learning_event` (xAPI-like) в Postgres → ClickHouse при росте                                                                                            |
-| Контейнеризация     | Docker + docker-compose для self-host                                                                                                                             |
+| Слой | Технология |
+| --- | --- |
+| Frontend + Backend | Next.js 15 (App Router) + React Server Components |
+| API | tRPC (внутренний), OpenAPI/REST обёртка (для внешних интеграций) |
+| БД | PostgreSQL 16+ |
+| ORM | Prisma |
+| Кеш + очереди | Redis + BullMQ |
+| Объектное хранилище | S3-совместимое (Yandex Object Storage / VK Cloud / MinIO) |
+| Видео | Self-hosted: FFmpeg-воркер → HLS в S3 → HLS.js плеер. Плюс универсальный embed (YouTube/RuTube/VK/Kinescope/Vimeo/Boomstream). Никаких обязательных внешних SaaS. |
+| Аутентификация | Auth.js (NextAuth) + ЕСИА OIDC для гос-сегмента |
+| AI | OpenAI API + Anthropic API через единый адаптер, pgvector для RAG |
+| Уведомления | SMTP (Unisender Go / Mailopost) + Telegram Bot API + Web Push (PWA) |
+| Поиск | PostgreSQL Full-Text Search → Meilisearch при росте |
+| Аналитика событий | таблица `learning_event` (xAPI-like) в Postgres → ClickHouse при росте |
+| Контейнеризация | Docker + docker-compose для self-host |
 
 ### Мульти-тенантность
 
@@ -165,3 +165,7 @@ Next.js `middleware.ts` запускается в **Edge Runtime** (Cloudflare W
 2. Если решение влияет на архитектуру — создать ADR в `docs/architecture/`, пометить статус `proposed`, описать варианты.
 3. Если решение тактическое — реализовать, отметить в коде комментарием с обоснованием.
 4. Если нет уверенности — спросить Paul, **не выдумывать**.
+
+## Как вести этот файл
+
+Потолок 200 строк и 15 КБ: здесь правила, карта и запреты. Хроника (что раскатали, инциденты, состояние на дату) — в `docs/history/`, текущий статус — в `_SUMMARY.md`.
